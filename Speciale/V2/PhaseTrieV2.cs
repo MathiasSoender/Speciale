@@ -19,6 +19,7 @@ namespace Speciale.V2
     public class PhaseTrieV2 : Trie
     {
         public LCP lcpDS;
+        public int[] DFSIndexToSuffixIndex;
 
 
 
@@ -47,7 +48,7 @@ namespace Speciale.V2
                     p_k = Phrase.FindDecompressedLength(patternPhrases.Take(curPhrase).ToArray());
                     r_k = p_k - patternPhrases[curPhrase].pos;
 
-                    return PhaseTrieV1.BinarySearchFromNode(curNode, SA, lcpDS, p_k, r_k, patternPhrases, curPhrase, patternLength, S);
+                    return PhaseTrieV1.BinarySearchFromNode(curNode, DFSIndexToSuffixIndex, SA, lcpDS, p_k, r_k, patternPhrases, curPhrase, patternLength, S);
                 }
 
                 // Step 2
@@ -55,9 +56,9 @@ namespace Speciale.V2
                 int i = child.leafPointer.suffixIndex;
                 int edgeLength = child.length;
                 p_k = Phrase.FindDecompressedLength(patternPhrases.Take(curPhrase + matched).ToArray());
+                int p_k_start = p_k;
 
-
-                while (matched < edgeLength && (curPhrase+matched) < patternPhrases.Length)
+                while (matched < edgeLength && (curPhrase+matched) < patternPhrases.Length && (p_k - p_k_start) < edgeLength)
                 {
 
                     // Single letter
@@ -87,7 +88,7 @@ namespace Speciale.V2
                         {
                             if (p_k + lcpDS.GetPrefixLength(i + p_k - r_k, i + p_k) >= patternLength)
                             {
-                                return FindLeaves(child).Select(x => x.suffixIndex).ToList();
+                                return GenerateOutputOfSearch(child); //  FindLeaves(child).Select(x => x.suffixIndex).ToList();
                             }
                             else
                             {
@@ -104,7 +105,11 @@ namespace Speciale.V2
                 curPhrase += matched;
 
             }
-            return FindLeaves(curNode).Select(x => x.suffixIndex).ToList();
+
+            // Matched everything
+            return PhaseTrieV1.CheckLeafNeighbors(SA[curNode.lexigraphicalI], SA, lcpDS, Phrase.FindDecompressedLength(patternPhrases));
+
+            // return GenerateOutputOfSearch(curNode);// FindLeaves(curNode).Select(x => x.suffixIndex).ToList();
 
         }
 
@@ -143,12 +148,15 @@ namespace Speciale.V2
             suffixIndex = v1Node.suffixIndex;
             lexigraphicalI = v1Node.lexigraphicalI;
             lexigraphicalJ = v1Node.lexigraphicalJ;
+            dfsI = v1Node.dfsI;
+            dfsJ = v1Node.dfsJ;
 
             leafRef = null;
 
             foreach (var kv in v1Node.childrenMap)
             {
                 childrenMap.Add(kv.Key, new PTNodeV2(kv.Value, out leafRef));
+
             }
 
             if (IsLeaf())

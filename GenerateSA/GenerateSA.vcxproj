@@ -112,7 +112,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>if $(ConfigurationName) == Debug xcopy /y "$(TargetDir)*.*" "$(SolutionDir)Speciale\bin\Debug\"
+      <Command>if $(ConfigurationName) == Debug xcopy /y "$(TargetDir)*.*" "$(SolutionDir)Speciale\bin\Debug\net6.0"
 </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>

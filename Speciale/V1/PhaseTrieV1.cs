@@ -16,32 +16,62 @@ namespace Speciale.V1
 {
     public class PhaseTrieV1 : Trie
     {
-        public Phrase[][] suffixPhrases;
         public LCP lcpDS;
+        public int[] DFSIndexToSuffixIndex;
+        private int curDFSindex;
 
 
-        public static List<int> BinarySearchFromNode(Node w, int[] SA, LCP lcpDS, int p_k, int r_k, Phrase[] patternPhrases, int kthphrase, int patternLength, string S)
+        public static List<int> CheckLeafNeighbors(int iMax, int[] SA, LCP lcpDS, int patternLength)
+        {
+            // Go left and right
+            List<int> output = new List<int>();
+
+            int[] indexToLexi = Statics.InverseArray(SA);
+            HashSet<int> visited = new HashSet<int>();
+            Stack<int> neighbors = new Stack<int>();
+            neighbors.Push(iMax);
+
+            while (neighbors.Count > 0)
+            {
+                int curI = neighbors.Pop();
+                visited.Add(curI);
+
+                int val = lcpDS.GetPrefixLength(curI, iMax);
+
+
+                if (val >= patternLength)
+                {
+                    if (indexToLexi[curI] - 1 >= 0 && !visited.Contains(SA[indexToLexi[curI] - 1]))
+                        neighbors.Push(SA[indexToLexi[curI] - 1]);
+                    if (indexToLexi[curI] + 1 < SA.Length && !visited.Contains(SA[indexToLexi[curI] + 1]))
+                        neighbors.Push(SA[indexToLexi[curI] + 1]);
+
+                    output.Add(curI);
+                }
+
+            }
+            return output;
+        }
+
+
+        public static List<int> BinarySearchFromNode(Node w, int[] DFSIndexToSuffixIndex, int[] SA, LCP lcpDS, int p_k, int r_k, Phrase[] patternPhrases, int kthphrase, int patternLength, string S)
         {
             int left = w.lexigraphicalI;
             int right = w.lexigraphicalJ;
             int maxVal = -1;
             int iMax = -1;
+            bool roundUp = false;
 
 
-            // Binary search
+
+
             while (true)
             {
-                int middel = (left + right) / 2;
+                int middel = roundUp ? (left + right + 1) / 2 : (left + right) / 2;
                 int i = SA[middel];
-
 
                 int val = lcpDS.GetPrefixLength(i + p_k - r_k, i + p_k);
 
-                // Edge case: We should be able to go deeper down, but not able to.
-                if (val > p_k)
-                {
-                    return new List<int>();
-                }
 
                 if (val > maxVal)
                 {
@@ -49,17 +79,42 @@ namespace Speciale.V1
                     maxVal = val;
                 }
 
-                if (val > patternPhrases[kthphrase].len || Math.Abs(left - right) <= 1)
+                if (Math.Abs(left - right) == 1)
+                {
+                    roundUp = true;
+                }
+
+                if (val > patternPhrases[kthphrase].len || left == right)
                 {
                     break;
                 }
 
-                int t = p_k + lcpDS.GetPrefixLength(i + p_k - r_k, i + p_k) + 1;
+                int t = p_k + lcpDS.GetPrefixLength(i + p_k - r_k, i + p_k);
 
                 // P[t] smaller than S_i[t]?, left half
                 // Remember lexigraphically
-                if (S[i + t - r_k] < S[i + t])
+                if (i + t >= S.Length)
                 {
+                    left = middel;
+                    continue;
+                }
+                // Should NOT be allowed!
+                if (S[i + t - r_k] == S[i + t])
+                {
+                    if (S[p_k + i + val] < S[p_k + i + val - r_k])
+                    {
+                        left = middel;
+                    }
+                    else
+                    {
+                        right = middel;
+                    }
+
+                }
+                else if (S[i + t - r_k] < S[i + t])
+                {
+                    if (right == middel)
+                        break;
                     right = middel;
                 }
                 else
@@ -68,12 +123,14 @@ namespace Speciale.V1
                 }
             }
 
-            if (p_k + maxVal >= patternLength)
+            if (p_k + Math.Min(lcpDS.GetPrefixLength(iMax + p_k - r_k, iMax + p_k), patternPhrases[kthphrase].len) >= patternLength)
             {
-                // Go left and right
+                return CheckLeafNeighbors(iMax, SA, lcpDS, patternLength);
+
+                /*
                 List<int> output = new List<int>();
 
-                int[] indexToLexi = Statics.IndexToLexigraphical(SA);
+                int[] indexToLexi = Statics.InverseArray(SA);
                 HashSet<int> visited = new HashSet<int>();
                 Stack<int> neighbors = new Stack<int>();
                 neighbors.Push(iMax);
@@ -83,14 +140,14 @@ namespace Speciale.V1
                     int curI = neighbors.Pop();
                     visited.Add(curI);
 
-                    int val = lcpDS.GetPrefixLength(curI + p_k - r_k, curI + p_k);
+                    int val = Math.Min(lcpDS.GetPrefixLength(curI + p_k - r_k, curI + p_k), patternPhrases[kthphrase].len);
 
 
                     if (p_k + val >= patternLength)
                     {
-                        if (indexToLexi[curI] - 1 >= 0 && !visited.Contains(SA[indexToLexi[curI] - 1]))
+                        if (indexToLexi[curI] - 1 >= 0 && SA[indexToLexi[curI] - 1] + p_k < SA.Length &&  !visited.Contains(SA[indexToLexi[curI] - 1]))
                             neighbors.Push(SA[indexToLexi[curI] - 1]);
-                        if (indexToLexi[curI] + 1 < SA.Length && !visited.Contains(SA[indexToLexi[curI] + 1]))
+                        if (indexToLexi[curI] + 1 < SA.Length && SA[indexToLexi[curI] + 1] + p_k < SA.Length && !visited.Contains(SA[indexToLexi[curI] + 1]))
                             neighbors.Push(SA[indexToLexi[curI] + 1]);
 
                         output.Add(curI);
@@ -98,6 +155,7 @@ namespace Speciale.V1
 
                 }
                 return output;
+                */
 
             }
             return new List<int>();
@@ -159,7 +217,8 @@ namespace Speciale.V1
             // Everything was matched, ie locus etc is not set
             if (kthphrase == -1 && w == null)
             {
-                return GenerateOutputOfSearch(curNode);// FindLeaves(curNode).Select(x => x.suffixIndex).ToList();
+                return CheckLeafNeighbors(SA[curNode.lexigraphicalI], SA, lcpDS, Phrase.FindDecompressedLength(patternPhrases));
+                // return GenerateOutputOfSearch(curNode);// FindLeaves(curNode).Select(x => x.suffixIndex).ToList();
             }
 
 
@@ -190,12 +249,48 @@ namespace Speciale.V1
                 }
                 else
                 {
-                    return BinarySearchFromNode(w, SA, lcpDS, p_k, r_k, patternPhrases, kthphrase, patternLength, S);
+                    return BinarySearchFromNode(w, DFSIndexToSuffixIndex, SA, lcpDS, p_k, r_k, patternPhrases, kthphrase, patternLength, S);
 
                 }
 
             }
             
+        }
+
+
+
+        public void SetPropertiesPhraseTrie(Node node, int SLen)
+        {
+            curDFSindex = 0;
+            DFSIndexToSuffixIndex = new int[SLen];
+
+            SetPropertiesPhraseTrieRecursive(node);
+
+        }
+
+        public Tuple<int, int> SetPropertiesPhraseTrieRecursive(Node node)
+        {
+
+            if (node.IsLeaf())
+            {
+                node.dfsI = curDFSindex;
+                node.dfsJ = curDFSindex;
+
+                DFSIndexToSuffixIndex[curDFSindex] = node.suffixIndex;
+
+                curDFSindex++;
+
+                return new Tuple<int, int>(node.dfsI, node.dfsJ);
+            }
+
+            List<Tuple<int, int>> lexigraphicalorders = node.children.Select(x => SetPropertiesPhraseTrieRecursive(x)).ToList();
+
+            var min = lexigraphicalorders.MinBy(x => x.Item1).Item1;
+            var max = lexigraphicalorders.MaxBy(x => x.Item2).Item2;
+            node.dfsI = min;
+            node.dfsJ = max;
+
+            return new Tuple<int, int>(min, max);
         }
 
 
@@ -214,8 +309,7 @@ namespace Speciale.V1
         {
             get
             {
-                if (_children == null)
-                    _children = childrenMap.Values;
+                _children = childrenMap.Values;
                 return _children;
             }
             set { _children = value; }

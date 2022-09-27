@@ -104,6 +104,49 @@ void SingleGeneration(char* file, char* algo, std::string savetofile) {
 }
 
 
+extern "C" {
+
+    // algorithm == 1 => kkp3
+    // algorithm == 2 => kkp2
+
+    __declspec(dllexport) int __stdcall LZ77DLL(unsigned char* text, int* sa, int length, int* phrasePositions, int* phraseLengths, int algorithm) {
+
+
+        int nphrases = -1;
+        std::vector<std::pair<int, int>>* output = new std::vector<std::pair<int, int>>;
+
+        if (algorithm == 1)
+            nphrases = kkp3(text, sa, length, output);
+        else if (algorithm == 2)
+            nphrases = kkp2(text, sa, length, output);
+
+        std::vector<std::pair<int, int>>& outputRef = *output;
+
+        for (int i = 0; i < outputRef.size(); i++) {
+            phrasePositions[i] = outputRef[i].first;
+            phraseLengths[i] = outputRef[i].second;
+
+        }
+
+        output->clear();
+        outputRef.clear();
+
+        return nphrases;
+    }
+
+    __declspec(dllexport) void __stdcall Free(int* phrasePositions, int* phraseLengths) {
+        free(phrasePositions);
+        free(phraseLengths);
+
+        return;
+
+    }
+
+
+}
+
+
+
 void SuffixesGeneration(char* file, char* algo, std::string savetofile) {
     std::string alg = algo;
 
@@ -165,7 +208,7 @@ int main(int argc, char** argv) {
     }
     std::string savetofile = (argc == 5) ? argv[3] : "";
     
-    if (strcmp(argv[4], "single") == 0) {
+    if (strcmp(argv[3], "single") == 0) {
         SingleGeneration(argv[1], argv[2], savetofile);
     }
     else if (strcmp(argv[4], "all") == 0) {

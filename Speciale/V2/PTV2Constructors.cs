@@ -31,27 +31,14 @@ namespace Speciale.V2
             PTV2.SA = PTV1.SA;
             PTV2.S = PTV1.S;
             PTV2.lcpDS = PTV1.lcpDS;
+            PTV2.DFSIndexToSuffixIndex = PTV1.DFSIndexToSuffixIndex;
 
             PTNodeV2 leafref = null;
             PTNodeV2 root = new PTNodeV2((PTNodeV1)PTV1.root, out leafref);
             root.leafPointer = leafref;
             PTV2.root = root;
 
-
-
-
-
-
-
-
-
-
-
-
-
             return PTV2;
-
-
 
         }
 

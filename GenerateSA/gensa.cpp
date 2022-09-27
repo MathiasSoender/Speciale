@@ -72,7 +72,26 @@ void SingleGenerate(char* file) {
     delete[] sa;
 }
 
-void SuffixesGenerate(char* file) {
+extern "C" {
+
+    __declspec(dllexport) void __stdcall SingleGenerateDLL(unsigned char* text, int length, int* sa) {
+
+
+
+        divsufsort(text, sa, length);
+
+        std::ofstream outfile;
+
+    }
+    __declspec(dllexport) void __stdcall Free(int* sa) {
+        delete[] sa;
+    }
+}
+
+
+
+void SuffixesGenerate(char* file)
+{
 
     unsigned char* text;
     int length;

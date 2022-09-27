@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
@@ -23,6 +24,20 @@ namespace Speciale.LZ77
             return l;
 
 
+        }
+
+        public static Phrase[] ArraysToObject(int[] phrasePositions, int[] phraseLengths, int phraseCount)
+        {
+            if (phrasePositions.Length != phraseLengths.Length)
+                throw new Exception("Positions and lengths are not equal");
+
+            Phrase[] phrases = new Phrase[phraseCount];
+            for (int i = 0; i < phraseCount; i++)
+            {
+                phrases[i] = new Phrase() { len = phraseLengths[i], pos = phrasePositions[i] };
+            }
+
+            return phrases;
         }
 
         public static Phrase[] PhraseFileToObject(string phrasefile)
@@ -47,71 +62,55 @@ namespace Speciale.LZ77
         }
 
         // O(n^2) time & space
-        public static Phrase[][] GeneratePhrasesForAllSuffixes(string textFile, string text)
+        public static Phrase[][] GeneratePhrasesForAllSuffixes(string text)
         {
-            List<string> suffixes = new List<string>();
+            [DllImport("GenerateSA.dll", EntryPoint = "Free", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+            static extern void Free(int[] SA);
 
-            for (int i = 0; i < text.Length; i++)
-            {
-                suffixes.Add(text.Substring(i));
-            }
 
             var allPhrases = new Phrase[text.Length][];
 
-            for (int i = 0; i < suffixes.Count(); i++)
-            {
-                string tempFile = textFile + ".temp";
-                string tempFilePhrases = tempFile + ".phrases";
-
-                File.WriteAllText(tempFile, suffixes[i]);
-
-                SAWrapper.GenerateSuffixArray(tempFile, out _);
-                LZ77Wrapper.GenerateLZ77Phrases(tempFile, tempFilePhrases, LZ77Wrapper.LZ77Algorithm.kkp3);
-                var tempPhrases = File.ReadAllLines(tempFilePhrases);
-                allPhrases[i] = PhraseFileToObject(tempPhrases);
-
-                File.Delete(tempFile);
-                File.Delete(tempFilePhrases);
-            }
-
-
-
-            return allPhrases;
-        }
-
-
-        public static Phrase[][] GeneratePhrasesForAllSuffixes2(string textFile, string text)
-        {
-
-            SAWrapper.GenerateAllSuffixArrays(textFile);
-            string phraseFile = textFile + "phrase";
-            LZ77Wrapper.GenerateSuffixLZ77Phrases(textFile, phraseFile, LZ77Wrapper.LZ77Algorithm.kkp3);
-            Phrase[][] allPhrases = new Phrase[text.Length][];
-
             for (int i = 0; i < text.Length; i++)
             {
-                string tempPhraseFile = phraseFile + i;
-
-                allPhrases[i] = PhraseFileToObject(tempPhraseFile);
-
-
-                // Cleanup
-                if (File.Exists(tempPhraseFile))
-                    File.Delete(tempPhraseFile);
-
-                if (File.Exists(textFile + i + ".sa"))
-                    File.Delete(textFile + i + ".sa");
-
+                string curSuffix = text.Substring(i);
+                int[] SA = SAWrapper.GenerateSuffixArrayDLL(curSuffix, false);
+                Phrase[] res = LZ77Wrapper.GenerateLZ77PhrasesDLL(curSuffix, false, SA, LZ77Wrapper.LZ77Algorithm.kkp3);
+                allPhrases[i] = res;
             }
-
-
-
-
 
 
 
             return allPhrases;
         }
+
+        public static string DecompressLZ77Phrases(Phrase[] phrases)
+        {
+            string outputString = "";
+
+            foreach (Phrase phrase in phrases)
+            {
+
+                if (phrase.len == 0)
+                {
+                    char character = (char)phrase.pos;
+                    outputString += character;
+                }
+                else
+                {
+
+                    for (int j = phrase.pos; j < (phrase.pos + phrase.len); j++)
+                    {
+                        outputString += outputString[j];
+                    }
+
+                }
+
+            }
+
+
+            return outputString;
+        }
+
 
 
         public override int GetHashCode()
@@ -152,6 +151,61 @@ namespace Speciale.LZ77
         }
 
 
+        public static Phrase[] GenerateLZ77PhrasesDLL(string data, bool isFile, int[] SA, LZ77Algorithm algo)
+        {
+            [DllImport("LZ77.dll", EntryPoint = "LZ77DLL", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+            static extern int LZ77DLL([MarshalAs(UnmanagedType.LPStr)] string data, int[] SA, int length, int[] phrasePositions, int[] phraseLengths, int algorithm);
+
+            [DllImport("LZ77.dll", EntryPoint = "Free", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+            static extern void Free(int[] phrasePositions, int[] phraseLengths);
+
+
+
+            string S;
+            if (isFile)
+                S = File.ReadAllText(data);
+            else
+                S = data;
+
+
+            int[] phraseLengths = new int[S.Length];
+            int[] phrasePositions = new int[S.Length];
+
+            /*
+            for (int i = 0; i < S.Length; i++)
+            {
+                phraseLengths[i] = -1;
+                phrasePositions[i] = -1;
+            }
+            */
+            int phraseCount;
+
+            if (algo == LZ77Algorithm.kkp3)
+                phraseCount = LZ77DLL(S, SA, S.Length, phrasePositions, phraseLengths, 1);
+            else if (algo == LZ77Algorithm.kkp2)
+                phraseCount = LZ77DLL(S, SA, S.Length, phrasePositions, phraseLengths, 2);
+            else
+                throw new Exception("Algorithm not supported for LZ77 generation DLL");
+
+
+
+            var res = Phrase.ArraysToObject(phrasePositions, phraseLengths, phraseCount);
+
+
+            phrasePositions = null;
+            phraseLengths = null;
+            // GC.Collect();
+
+            return res;
+
+
+        }
+
+
+
+        #region unused .exe entry points
+
+
         public static void GenerateLZ77Phrases(string infile, string phrasesfile, LZ77Algorithm algo)
         {
             DateTime t1 = DateTime.Now;
@@ -185,38 +239,8 @@ namespace Speciale.LZ77
 
         }
 
+        #endregion
 
 
-
-        public static string DecompressLZ77Phrases(string[] phrases)
-        {
-            string outputString = "";
-
-            foreach(string phrase in phrases)
-            {
-                var split = phrase.Split(" ");
-                int repeatLen = int.Parse(split[1]);
-
-                if (repeatLen == 0)
-                {
-                    char character = (char)int.Parse(split[0]);
-                    outputString += character;
-                }
-                else
-                {
-                    int startPos = int.Parse(split[0]);
-
-                    for(int j = startPos; j < (startPos + repeatLen); j++)
-                    {
-                        outputString += outputString[j];
-                    }
-
-                }
-
-            }
-
-
-            return outputString;
-        }
     }
 }

@@ -109,8 +109,6 @@ int kkp3(unsigned char* X, int*& SA, int n,
     std::vector<std::pair<int, int> >* F) {
     if (n == 0) return 0;
     int* CPSS = new int[2 * n + 5];
-    int* NSV = new int[n + 2];
-    int* PSV = new int[n + 2];
 
 
 
@@ -123,10 +121,7 @@ int kkp3(unsigned char* X, int*& SA, int n,
     SA[0] = SA[n + 1] = -1;
 
 
-    std::vector<int> insp;
-    for (int i = 0; i <= n + 1; i++) {
-        insp.push_back(SA[i]);
-    }
+    
     // Compute PSV_text and NSV_text for SA.
     int top = 0;
     for (int i = 1; i <= n + 1; ++i) {
@@ -135,27 +130,11 @@ int kkp3(unsigned char* X, int*& SA, int n,
             CPSS[addr] = SA[top - 1];
             CPSS[addr + 1] = SA[i];
 
-            NSV[SA[top]] = SA[i];
-            PSV[SA[top]] = SA[top - 1];
             --top;
 
         }
         ++top;
         SA[top] = SA[i];
-    }
-
-    std::vector<int> insp2;
-    std::vector<int> NSVinspec;
-    std::vector<int> PSVinspec;
-
-    for (int i = 0; i <= 2 * n + 5; i++) {
-        insp2.push_back(CPSS[i]);
-    }
-
-    for (int i = 0; i <= n; i++) {
-        NSVinspec.push_back(NSV[i]);
-        PSVinspec.push_back(PSV[i]);
-
     }
 
 
@@ -168,8 +147,6 @@ int kkp3(unsigned char* X, int*& SA, int n,
         int psv = CPSS[addr];
         int nsv = CPSS[addr + 1];
 
-        int psv2 = PSV[i];
-        int nsv2 = NSV[i];
 
         i = parse_phrase(X, n, i, psv, nsv, F);
         ++nfactors;

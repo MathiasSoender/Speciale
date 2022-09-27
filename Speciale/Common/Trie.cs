@@ -31,29 +31,58 @@ namespace Speciale.Common
                 throw new Exception("Cannot finalize construction with null SA");
 
             suffixIndexToLeaf = new Dictionary<int, Node>();
-            int[] indexToLexi = Statics.IndexToLexigraphical(SA);
-            SetPropertiesRecursive(root, indexToLexi);
+            int[] inverseSA = Statics.InverseArray(SA);
+            SetPropertiesRecursive(root, inverseSA);
         }
 
         // Something like 3*n for binary trees
         // Sets lexigraphical range
-        private Tuple<int, int> SetPropertiesRecursive(Node node, int[] indexToLexi)
+        public Tuple<int, int> SetPropertiesRecursive(Node node, int[] inverseSA)
         {
             if (node.IsLeaf())
             {
-                node.lexigraphicalJ = indexToLexi[node.suffixIndex];
-                node.lexigraphicalI = indexToLexi[node.suffixIndex];
+                node.lexigraphicalJ = inverseSA[node.suffixIndex];
+                node.lexigraphicalI = inverseSA[node.suffixIndex];
                 suffixIndexToLeaf.Add(node.suffixIndex, node);
 
                 return new Tuple<int, int>(node.lexigraphicalI, node.lexigraphicalI);
             }
 
-            List<Tuple<int, int>> lexigraphicalorders = node.children.Select(x => SetPropertiesRecursive(x, indexToLexi)).ToList();
+            List<Tuple<int, int>> lexigraphicalorders = node.children.Select(x => SetPropertiesRecursive(x, inverseSA)).ToList();
 
             var min = lexigraphicalorders.MinBy(x => x.Item1).Item1;
             var max = lexigraphicalorders.MaxBy(x => x.Item2).Item2;
             node.lexigraphicalI = min;
             node.lexigraphicalJ = max;
+
+            int[] test = new int[max - min + 1];
+
+            for (int i = 0; i < test.Length; i++)
+            {
+                test[i] = i + min;
+            }
+
+            var leaves = FindLeaves(node);
+
+            var real = leaves.Select(x => x.lexigraphicalI).ToArray();
+
+
+            Array.Sort(real);
+            Array.Sort(test);
+
+            if (real.Length != test.Length)
+            {
+                int asd = 1;
+            }
+            for (int i = 0; i < real.Length; i++)
+            {
+                if (real[i] != test[i])
+                {
+                    int kb = 2;
+                }
+            }
+
+
 
             return new Tuple<int, int>(min, max);
 

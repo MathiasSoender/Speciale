@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace Speciale.Common
 {
@@ -16,30 +17,37 @@ namespace Speciale.Common
 
             ProcessStartInfo psi = new ProcessStartInfo();
 
-            if (new DirectoryInfo(AppContext.BaseDirectory).Name.Contains("net"))
-            {
-                var parentDir = Directory.GetParent(AppContext.BaseDirectory);
-                psi.FileName = Path.Combine(parentDir.Parent.FullName, exeName);
-
-            }
-            else
-            {
-                psi.FileName = Path.Combine(AppContext.BaseDirectory, exeName);
-
-            }
+            psi.FileName = GetDLLorEXEpath(exeName);
 
             psi.CreateNoWindow = true;
             psi.Arguments = arguments;
             return psi;
         }
 
-        public static int[] IndexToLexigraphical(int[] SA)
+        public static string GetDLLorEXEpath(string name)
+        {
+            string filename;
+            if (new DirectoryInfo(AppContext.BaseDirectory).Name.Contains("net"))
+            {
+                var parentDir = Directory.GetParent(AppContext.BaseDirectory);
+                filename = Path.Combine(parentDir.Parent.FullName, name);
+
+            }
+            else
+            {
+                filename = Path.Combine(AppContext.BaseDirectory, name);
+
+            }
+            return filename;
+        }
+
+        public static int[] InverseArray(int[] arr)
         {
 
-            int[] indexToLexi = new int[SA.Length];
+            int[] indexToLexi = new int[arr.Length];
 
-            for (int i = 0; i < SA.Length; i++)
-                indexToLexi[SA[i]] = i;
+            for (int i = 0; i < arr.Length; i++)
+                indexToLexi[arr[i]] = i;
 
             return indexToLexi;
         }
@@ -56,11 +64,20 @@ namespace Speciale.Common
                 StringBuilder newS = new StringBuilder();
 
 
+
                 for (int i = 0; i < s.Length; i++)
                 {
                     char? symbol = null;
 
-                    if (unallowedEscapeSymbols.Contains(s[i]))
+                    if (s[i] == '“' || s[i] == '”')
+                    {
+                        symbol = '"';
+                    }
+                    else if (s[i] == '’')
+                    {
+                        symbol = (char)39;
+                    }
+                    else if (unallowedEscapeSymbols.Contains(s[i]))
                     {
                         symbol = ' ';
                     }
