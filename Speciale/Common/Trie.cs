@@ -55,35 +55,6 @@ namespace Speciale.Common
             node.lexigraphicalI = min;
             node.lexigraphicalJ = max;
 
-            int[] test = new int[max - min + 1];
-
-            for (int i = 0; i < test.Length; i++)
-            {
-                test[i] = i + min;
-            }
-
-            var leaves = FindLeaves(node);
-
-            var real = leaves.Select(x => x.lexigraphicalI).ToArray();
-
-
-            Array.Sort(real);
-            Array.Sort(test);
-
-            if (real.Length != test.Length)
-            {
-                int asd = 1;
-            }
-            for (int i = 0; i < real.Length; i++)
-            {
-                if (real[i] != test[i])
-                {
-                    int kb = 2;
-                }
-            }
-
-
-
             return new Tuple<int, int>(min, max);
 
         }

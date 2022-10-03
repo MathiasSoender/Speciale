@@ -22,9 +22,23 @@ namespace Speciale.LZ77
             int l = 0;
             Array.ForEach(phrases, x => l += Math.Max(x.len, 1));
             return l;
+        }
 
+        public static int[] FindPhraseIndexToDecompressedLength(Phrase[] phrases)
+        {
+            int[] indexToLength = new int[phrases.Length + 1];
+
+            int matched = 0;
+            for (int i = 0; i < phrases.Length; i++)
+            {
+                indexToLength[i] = matched;
+                matched += phrases[i].len == 0 ? 1 : phrases[i].len;
+            }
+            indexToLength[phrases.Length] = matched;
+            return indexToLength;
 
         }
+
 
         public static Phrase[] ArraysToObject(int[] phrasePositions, int[] phraseLengths, int phraseCount)
         {
@@ -61,27 +75,6 @@ namespace Speciale.LZ77
             return phrasesParsed;
         }
 
-        // O(n^2) time & space
-        public static Phrase[][] GeneratePhrasesForAllSuffixes(string text)
-        {
-            [DllImport("GenerateSA.dll", EntryPoint = "Free", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
-            static extern void Free(int[] SA);
-
-
-            var allPhrases = new Phrase[text.Length][];
-
-            for (int i = 0; i < text.Length; i++)
-            {
-                string curSuffix = text.Substring(i);
-                int[] SA = SAWrapper.GenerateSuffixArrayDLL(curSuffix, false);
-                Phrase[] res = LZ77Wrapper.GenerateLZ77PhrasesDLL(curSuffix, false, SA, LZ77Wrapper.LZ77Algorithm.kkp3);
-                allPhrases[i] = res;
-            }
-
-
-
-            return allPhrases;
-        }
 
         public static string DecompressLZ77Phrases(Phrase[] phrases)
         {
@@ -171,13 +164,7 @@ namespace Speciale.LZ77
             int[] phraseLengths = new int[S.Length];
             int[] phrasePositions = new int[S.Length];
 
-            /*
-            for (int i = 0; i < S.Length; i++)
-            {
-                phraseLengths[i] = -1;
-                phrasePositions[i] = -1;
-            }
-            */
+
             int phraseCount;
 
             if (algo == LZ77Algorithm.kkp3)
@@ -192,9 +179,6 @@ namespace Speciale.LZ77
             var res = Phrase.ArraysToObject(phrasePositions, phraseLengths, phraseCount);
 
 
-            phrasePositions = null;
-            phraseLengths = null;
-            // GC.Collect();
 
             return res;
 

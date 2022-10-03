@@ -14,11 +14,9 @@ using System.Threading.Tasks;
 
 namespace Speciale.V1
 {
-    public class PhaseTrieV1 : Trie
+    public class PhraseTrieV1 : Trie
     {
         public LCP lcpDS;
-        public int[] DFSIndexToSuffixIndex;
-        private int curDFSindex;
 
 
         public static List<int> CheckLeafNeighbors(int iMax, int[] SA, LCP lcpDS, int patternLength)
@@ -54,16 +52,13 @@ namespace Speciale.V1
         }
 
 
-        public static List<int> BinarySearchFromNode(Node w, int[] DFSIndexToSuffixIndex, int[] SA, LCP lcpDS, int p_k, int r_k, Phrase[] patternPhrases, int kthphrase, int patternLength, string S)
+        public static List<int> BinarySearchFromNode(Node w, int[] SA, LCP lcpDS, int p_k, int r_k, Phrase[] patternPhrases, int kthphrase, int patternLength, string S)
         {
             int left = w.lexigraphicalI;
             int right = w.lexigraphicalJ;
             int maxVal = -1;
             int iMax = -1;
             bool roundUp = false;
-
-
-
 
             while (true)
             {
@@ -127,36 +122,6 @@ namespace Speciale.V1
             {
                 return CheckLeafNeighbors(iMax, SA, lcpDS, patternLength);
 
-                /*
-                List<int> output = new List<int>();
-
-                int[] indexToLexi = Statics.InverseArray(SA);
-                HashSet<int> visited = new HashSet<int>();
-                Stack<int> neighbors = new Stack<int>();
-                neighbors.Push(iMax);
-
-                while (neighbors.Count > 0)
-                {
-                    int curI = neighbors.Pop();
-                    visited.Add(curI);
-
-                    int val = Math.Min(lcpDS.GetPrefixLength(curI + p_k - r_k, curI + p_k), patternPhrases[kthphrase].len);
-
-
-                    if (p_k + val >= patternLength)
-                    {
-                        if (indexToLexi[curI] - 1 >= 0 && SA[indexToLexi[curI] - 1] + p_k < SA.Length &&  !visited.Contains(SA[indexToLexi[curI] - 1]))
-                            neighbors.Push(SA[indexToLexi[curI] - 1]);
-                        if (indexToLexi[curI] + 1 < SA.Length && SA[indexToLexi[curI] + 1] + p_k < SA.Length && !visited.Contains(SA[indexToLexi[curI] + 1]))
-                            neighbors.Push(SA[indexToLexi[curI] + 1]);
-
-                        output.Add(curI);
-                    }
-
-                }
-                return output;
-                */
-
             }
             return new List<int>();
         }
@@ -164,12 +129,12 @@ namespace Speciale.V1
         public List<int> Search(Phrase[] patternPhrases)
         {
 
-            PTNodeV1 curNode = (PTNodeV1)root;
-            PTNodeV1 child;
+            PTV1Node curNode = (PTV1Node)root;
+            PTV1Node child;
             int curPhrase = 0; // Index in pattern
 
             // Variables from paper
-            PTNodeV1 w = null; 
+            PTV1Node w = null; 
             int kthphrase = -1;
             bool locusIsEdge = false;
 
@@ -218,7 +183,6 @@ namespace Speciale.V1
             if (kthphrase == -1 && w == null)
             {
                 return CheckLeafNeighbors(SA[curNode.lexigraphicalI], SA, lcpDS, Phrase.FindDecompressedLength(patternPhrases));
-                // return GenerateOutputOfSearch(curNode);// FindLeaves(curNode).Select(x => x.suffixIndex).ToList();
             }
 
 
@@ -243,13 +207,12 @@ namespace Speciale.V1
                     int i = SA[w.lexigraphicalI];
                     int totalmatchedlength = p_k + Math.Min(lcpDS.GetPrefixLength(i + p_k - r_k, i + p_k), patternPhrases[kthphrase].len);
 
-                    // FindLeaves(curNode).Select(x => x.suffixIndex).ToList()
                     return totalmatchedlength >= patternLength ? GenerateOutputOfSearch(curNode) : new List<int>();
 
                 }
                 else
                 {
-                    return BinarySearchFromNode(w, DFSIndexToSuffixIndex, SA, lcpDS, p_k, r_k, patternPhrases, kthphrase, patternLength, S);
+                    return BinarySearchFromNode(w, SA, lcpDS, p_k, r_k, patternPhrases, kthphrase, patternLength, S);
 
                 }
 
@@ -258,52 +221,16 @@ namespace Speciale.V1
         }
 
 
-
-        public void SetPropertiesPhraseTrie(Node node, int SLen)
-        {
-            curDFSindex = 0;
-            DFSIndexToSuffixIndex = new int[SLen];
-
-            SetPropertiesPhraseTrieRecursive(node);
-
-        }
-
-        public Tuple<int, int> SetPropertiesPhraseTrieRecursive(Node node)
-        {
-
-            if (node.IsLeaf())
-            {
-                node.dfsI = curDFSindex;
-                node.dfsJ = curDFSindex;
-
-                DFSIndexToSuffixIndex[curDFSindex] = node.suffixIndex;
-
-                curDFSindex++;
-
-                return new Tuple<int, int>(node.dfsI, node.dfsJ);
-            }
-
-            List<Tuple<int, int>> lexigraphicalorders = node.children.Select(x => SetPropertiesPhraseTrieRecursive(x)).ToList();
-
-            var min = lexigraphicalorders.MinBy(x => x.Item1).Item1;
-            var max = lexigraphicalorders.MaxBy(x => x.Item2).Item2;
-            node.dfsI = min;
-            node.dfsJ = max;
-
-            return new Tuple<int, int>(min, max);
-        }
-
-
     }
 
 
 
 
-    public class PTNodeV1 : Node
+    public class PTV1Node : Node
     {
         public List<Phrase> phrases;
 
-        public Dictionary<Phrase, PTNodeV1> childrenMap;
+        public Dictionary<Phrase, PTV1Node> childrenMap;
 
         public override IEnumerable<Node> children
         {
@@ -317,26 +244,25 @@ namespace Speciale.V1
 
 
         // Root constructor
-        public PTNodeV1()
+        public PTV1Node()
         {
             phrases = new List<Phrase>();
-            childrenMap = new Dictionary<Phrase, PTNodeV1>();
-        }
-
-        // Leaf constructor
-        public PTNodeV1(List<Phrase> phrases, int suffixIndex)
-        {
-            childrenMap = new Dictionary<Phrase, PTNodeV1>();
-            this.phrases = phrases;
-            this.suffixIndex = suffixIndex;
+            childrenMap = new Dictionary<Phrase, PTV1Node>();
         }
 
         // Internal node constructor
-        public PTNodeV1(List<Phrase> phrases)
+        public PTV1Node(List<Phrase> phrases) : this()
         {
-            childrenMap = new Dictionary<Phrase, PTNodeV1>();
             this.phrases = phrases;
         }
+
+        // Leaf constructor
+        public PTV1Node(List<Phrase> phrases, int suffixIndex) : this(phrases)
+        {
+            this.suffixIndex = suffixIndex;
+        }
+
+
 
 
 

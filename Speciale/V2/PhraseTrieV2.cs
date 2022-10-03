@@ -16,55 +16,65 @@ using System.Threading.Tasks;
 namespace Speciale.V2
 {
     // Section 4, Linear space phrase trie
-    public class PhaseTrieV2 : Trie
+    public class PhraseTrieV2 : Trie
     {
         public LCP lcpDS;
-        public int[] DFSIndexToSuffixIndex;
 
 
 
         public List<int> Search(Phrase[] patternPhrases)
         {
 
-
-            PTNodeV2 curNode = (PTNodeV2)root;
-            PTNodeV2 child;
-            int curPhrase = 0; // Index in pattern
+            var phraseIndexToDecompLength = Phrase.FindPhraseIndexToDecompressedLength(patternPhrases);
+            PTV2Node curNode = (PTV2Node)root;
+            PTV2Node child;
+            int curPhraseIndex = 0; // Index in pattern
             int p_k;
             int r_k;
-            int patternLength = Phrase.FindDecompressedLength(patternPhrases);
+            int patternLength = phraseIndexToDecompLength[patternPhrases.Length];
+            int patternLength2 = phraseIndexToDecompLength[patternPhrases.Length];
 
-            while (curPhrase < patternPhrases.Length)
+            if (patternLength != patternLength2)
+                throw new Exception("DAMN");
+
+            while (curPhraseIndex < patternPhrases.Length)
             {
                 // Step 1, section 4.2
-                if (!curNode.childrenMap.TryGetValue(patternPhrases[curPhrase], out child))
+                if (!curNode.childrenMap.TryGetValue(patternPhrases[curPhraseIndex], out child))
                 {
-                    if (patternPhrases[curPhrase].len == 0)
+                    if (patternPhrases[curPhraseIndex].len == 0)
                     {
                         return new List<int>();
                     }
 
 
-                    p_k = Phrase.FindDecompressedLength(patternPhrases.Take(curPhrase).ToArray());
-                    r_k = p_k - patternPhrases[curPhrase].pos;
+                    p_k = Phrase.FindDecompressedLength(patternPhrases.Take(curPhraseIndex).ToArray());
+                    int pk3 = phraseIndexToDecompLength[curPhraseIndex];
+                    if (p_k != pk3)
+                        throw new Exception("DAMN");
+                    r_k = p_k - patternPhrases[curPhraseIndex].pos;
 
-                    return PhaseTrieV1.BinarySearchFromNode(curNode, DFSIndexToSuffixIndex, SA, lcpDS, p_k, r_k, patternPhrases, curPhrase, patternLength, S);
+                    return PhraseTrieV1.BinarySearchFromNode(curNode, SA, lcpDS, p_k, r_k, patternPhrases, curPhraseIndex, patternLength, S);
                 }
 
                 // Step 2
                 int matched = 0;
                 int i = child.leafPointer.suffixIndex;
                 int edgeLength = child.length;
-                p_k = Phrase.FindDecompressedLength(patternPhrases.Take(curPhrase + matched).ToArray());
+                p_k = Phrase.FindDecompressedLength(patternPhrases.Take(curPhraseIndex).ToArray());
+                int pk2 = phraseIndexToDecompLength[curPhraseIndex];
+                if (p_k != pk2)
+                    throw new Exception("DAMN");
+
                 int p_k_start = p_k;
 
-                while (matched < edgeLength && (curPhrase+matched) < patternPhrases.Length && (p_k - p_k_start) < edgeLength)
+                while ((curPhraseIndex+matched) < patternPhrases.Length && (p_k - p_k_start) < edgeLength) // && matched < edgeLength)
                 {
 
                     // Single letter
-                    if (patternPhrases[curPhrase + matched].len == 0)
+                    if (patternPhrases[curPhraseIndex + matched].len == 0)
                     {
-                        if (patternPhrases[curPhrase + matched].pos == S[i + p_k])
+                        if (patternPhrases[curPhraseIndex + matched].pos == S[i + p_k])
                         {
                             matched++;
                             p_k++;
@@ -76,8 +86,8 @@ namespace Speciale.V2
                     }
                     else
                     {
-                        r_k = p_k - patternPhrases[curPhrase + matched].pos;
-                        int l_k = patternPhrases[curPhrase + matched].len;
+                        r_k = p_k - patternPhrases[curPhraseIndex + matched].pos;
+                        int l_k = patternPhrases[curPhraseIndex + matched].len;
 
                         if (Math.Min(lcpDS.GetPrefixLength(i + p_k - r_k, i + p_k), l_k) == l_k)
                         {
@@ -88,7 +98,7 @@ namespace Speciale.V2
                         {
                             if (p_k + lcpDS.GetPrefixLength(i + p_k - r_k, i + p_k) >= patternLength)
                             {
-                                return GenerateOutputOfSearch(child); //  FindLeaves(child).Select(x => x.suffixIndex).ToList();
+                                return GenerateOutputOfSearch(child);
                             }
                             else
                             {
@@ -102,14 +112,12 @@ namespace Speciale.V2
 
                 // Completely matched the edge
                 curNode = child;
-                curPhrase += matched;
+                curPhraseIndex += matched;
 
             }
 
             // Matched everything
-            return PhaseTrieV1.CheckLeafNeighbors(SA[curNode.lexigraphicalI], SA, lcpDS, Phrase.FindDecompressedLength(patternPhrases));
-
-            // return GenerateOutputOfSearch(curNode);// FindLeaves(curNode).Select(x => x.suffixIndex).ToList();
+            return PhraseTrieV1.CheckLeafNeighbors(SA[curNode.lexigraphicalI], SA, lcpDS, patternLength);
 
         }
 
@@ -119,14 +127,14 @@ namespace Speciale.V2
 
 
 
-    public class PTNodeV2 : Node
+    public class PTV2Node : Node
     {
         public int length;
 
-        public PTNodeV2 leafPointer;
+        public PTV2Node leafPointer;
 
 
-        public Dictionary<Phrase, PTNodeV2> childrenMap;
+        public Dictionary<Phrase, PTV2Node> childrenMap;
 
         public override IEnumerable<Node> children
         {
@@ -139,23 +147,43 @@ namespace Speciale.V2
             set { _children = value; }
         }
 
-        // Recursively changes type of all V1 nodes below argument node
-        public PTNodeV2(PTNodeV1 v1Node, out PTNodeV2 leafRef)
+        // Root constructor
+        public PTV2Node()
         {
-            childrenMap = new Dictionary<Phrase, PTNodeV2>();
+            childrenMap = new Dictionary<Phrase, PTV2Node>();
+
+        }
+
+        // Internal node constructor
+
+        public PTV2Node(int length) : this()
+        {
+            this.length = length;
+        }
+
+        // Leaf constructor
+        public PTV2Node(int length, int suffixIndex) : this(length)
+        {
+            this.suffixIndex = suffixIndex;
+            leafPointer = this;
+        }
+
+
+        // Recursively changes type of all V1 nodes below argument node (only used for constructing PTV2 from PTV1)
+        public PTV2Node(PTV1Node v1Node, out PTV2Node leafRef)
+        {
+            childrenMap = new Dictionary<Phrase, PTV2Node>();
 
             length = Phrase.FindDecompressedLength(v1Node.phrases.ToArray());
             suffixIndex = v1Node.suffixIndex;
             lexigraphicalI = v1Node.lexigraphicalI;
             lexigraphicalJ = v1Node.lexigraphicalJ;
-            dfsI = v1Node.dfsI;
-            dfsJ = v1Node.dfsJ;
 
             leafRef = null;
 
             foreach (var kv in v1Node.childrenMap)
             {
-                childrenMap.Add(kv.Key, new PTNodeV2(kv.Value, out leafRef));
+                childrenMap.Add(kv.Key, new PTV2Node(kv.Value, out leafRef));
 
             }
 
@@ -172,10 +200,6 @@ namespace Speciale.V2
 
 
         }
-
-
-
-
 
 
         public override bool IsLeaf()

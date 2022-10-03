@@ -10,15 +10,11 @@ using System.Threading.Tasks;
 
 namespace Speciale.CSC
 {
-    public class ConsecutiveSuffixCompressor
+    public class CSC_v1
     {
 
         LCP lcpDS;
-        int[] SA; // Changed during execution
-        int[] invSA;
         string data;
-        Dictionary<int, int> predecessors; // Could just be arrays
-        Dictionary<int, int> successors;
         int[] repeatLengths;
 
         // suffix index => pred SA index
@@ -28,91 +24,30 @@ namespace Speciale.CSC
         int[] SALazy;
         int[] SALazyInv;
 
-        public ConsecutiveSuffixCompressor(string data)
+        public CSC_v1(string data, int[] SA, LCP lcpDS = null)
         {
             this.data = data;
-            SA = SAWrapper.GenerateSuffixArrayDLL(data, false);
-            invSA = Statics.InverseArray(SA);
 
-            SALazy = new int[SA.Length];
-            Array.Copy(SA, SALazy, SA.Length);
+            SALazy = SA;
             SALazyInv = Statics.InverseArray(SALazy);
-
-            lcpDS = new LCP(data, SA, LCPType.fast);
-            ComputePredecessorAndSucessor();
+            this.lcpDS = lcpDS == null ? new LCP(data, SALazy, LCPType.fast) : lcpDS;
             ComputeRepeatLengths();
-            CompressAllSuffixes();
         }
 
-        public void Test(Phrase[][] phrases)
+        public Phrase[][] CompressAllSuffixes(bool safeResult = true)
         {
-            for (int i = 0; i < data.Length; i++)
-            {
-                string suffix = data.Substring(i);
-                var curSA = SAWrapper.GenerateSuffixArrayDLL(suffix, false);
-                var correctLZ = LZ77Wrapper.GenerateLZ77PhrasesDLL(suffix, false, curSA, LZ77Wrapper.LZ77Algorithm.kkp3);
-
-
-                if (correctLZ.Length != phrases[i].Length)
-                {
-                    throw new Exception("Error");
-                }
-
-                for (int j = 0; j < correctLZ.Length; j++)
-                {
-                    if (!correctLZ[j].Equals(phrases[i][j]))
-                    {
-                        throw new Exception("Error");
-                    }
-                }
-
-            }
-        }
-
-        public Phrase[][] CompressAllSuffixes()
-        {
-            DateTime t1 = DateTime.Now;
-            var res = new Phrase[data.Length][];
+            var res = (safeResult) ? new Phrase[data.Length][] : new Phrase[1][];
 
             for(int i = 0; i < data.Length; i++)
             {
                 var curRes = CompressOneSuffix(i);
-                res[i] = curRes;
-
-                if (i != data.Length - 1) // Dont update on last iteration (will always be single char)
-                    UpdateDS(i);
-
-
+                if (safeResult) res[i] = curRes;
             }
-            Console.Out.WriteLine("Time taken: " + (DateTime.Now - t1).TotalSeconds);
-
-            Test(res);
             return res;
-
         }
 
-        private void UpdateDS(int curSuffix)
-        {
-            var SAlist = SA.ToList();
-            int killIndex = 0;
-            for (int i = 0; i < SAlist.Count(); i++)
-            {
-                if (SAlist[i] == 0)
-                {
-                    killIndex = i;
-                }
-                SAlist[i] -= 1;
-            }
-            SAlist.RemoveAt(killIndex);
-
-            SA = SAlist.ToArray();
-
-            ComputePredecessorAndSucessor();
-            invSA = Statics.InverseArray(SA);
-
-        }
-
-        private Phrase[] CompressOneSuffix(int curSuffix)
+        // Should be used with care! Can only be used in suffix order; ie curSuffix = 0, curSuffix = 1, ..
+        public Phrase[] CompressOneSuffix(int curSuffix)
         {
             HashSet<char> seenChars = new HashSet<char>();
             List<Phrase> res = new List<Phrase>();
@@ -130,23 +65,12 @@ namespace Speciale.CSC
                     continue;
                 }
                 int predLazySAindexed = FindLazyPredecessor(curSuffix, matched);
-                int predLazySuffixIndexed = predLazySAindexed == -1 ? -1 : SALazy[predLazySAindexed] - curSuffix;
+                int pred = predLazySAindexed == -1 ? -1 : SALazy[predLazySAindexed] - curSuffix;
 
                 int succLazySAindexed = FindLazySuccessor(curSuffix, matched);
-                int succLazySuffixIndexed = succLazySAindexed == -1 ? -1 : SALazy[succLazySAindexed] - curSuffix;
+                int succ = succLazySAindexed == -1 ? -1 : SALazy[succLazySAindexed] - curSuffix;
 
 
-                int pred = predecessors[invSA[matched]] == -1 ? -1 : SA[predecessors[invSA[matched]]];
-                int succ = successors[invSA[matched]] == -1 ? -1 : SA[successors[invSA[matched]]];
-
-                if (pred != predLazySuffixIndexed)
-                {
-                    int k = 10;
-                }
-                if (succ != succLazySuffixIndexed)
-                {
-                    int k = 10;
-                }
 
 
                 int len1 = pred == -1 ? 0 : lcpDS.GetPrefixLength(pred + curSuffix, i, true);
@@ -195,39 +119,6 @@ namespace Speciale.CSC
 
 
             return res.ToArray();
-        }
-
-        // Naive O(n^2) - can be improved to O(nlg(n)) or O(nlglg(n))
-        private void ComputePredecessorAndSucessor()
-        {
-            predecessors = new Dictionary<int, int>();
-            successors = new Dictionary<int, int>();
-
-            for (int i = 0; i < SA.Length; i++)
-            {
-                int predIndex = -1;
-                int sucIndex = -1;
-
-                for (int j = i - 1; j >= 0; j--)
-                {
-                    if (SA[j] < SA[i])
-                    {
-                        predIndex = j;
-                        break;
-                    }
-                }
-
-                for (int j = i + 1; j < SA.Length; j++)
-                {
-                    if (SA[j] < SA[i])
-                    {
-                        sucIndex = j;
-                        break;
-                    }
-                }
-                predecessors.Add(i, predIndex);
-                successors.Add(i, sucIndex);
-            }
         }
 
         // O(n)
@@ -373,8 +264,6 @@ namespace Speciale.CSC
             }
 
             return predIndex;
-
-
 
         }
 

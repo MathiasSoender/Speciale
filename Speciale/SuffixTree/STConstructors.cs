@@ -37,7 +37,7 @@ namespace Speciale.SuffixTree
                     {
                         STNode leafNode = new STNode(curIndex, S.Length, i);
                         curNode.childrenMap.Add(ST.IndexOfS(curIndex), leafNode);
-                        curIndex = S.Length;
+                        break;
                     }
                     else
                     {
@@ -69,7 +69,7 @@ namespace Speciale.SuffixTree
                             STNode leafNode = new STNode(matchedLength + curIndex, S.Length, i);
                             splitNode.childrenMap.Add(ST.IndexOfS(leafNode.indexI), leafNode);
 
-                            curIndex = S.Length;
+                            break;
 
 
                         }
