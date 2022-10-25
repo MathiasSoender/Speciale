@@ -40,25 +40,31 @@ namespace Speciale.Common
             var SA = SAWrapper.GenerateSuffixArrayDLL(data, false);
             var lcp = new LCP(data, SA, LCPType.fast);
 
-            SA = SAWrapper.GenerateSuffixArrayDLL(data, false);
             var watch = System.Diagnostics.Stopwatch.StartNew();
+            //var csc_SAOrder = new CSC_SAOrder(data, SA, lcp);
+            //var res_SAOrder = csc_SAOrder.CompressAllSuffixes(safeResult);
+            watch.Stop();
+            Console.Out.WriteLine("Time taken for SA Order: " + (double)watch.ElapsedMilliseconds / 1000);
+
+
+            SA = SAWrapper.GenerateSuffixArrayDLL(data, false);
+            watch = System.Diagnostics.Stopwatch.StartNew();
             var csc_v3 = new CSC_v3(data, SA, lcp);
             var res_v3 = csc_v3.CompressAllSuffixes(safeResult);
             watch.Stop();
             Console.Out.WriteLine("Time taken for previous phrase usage + Lazy SA + only arrays: " + (double)watch.ElapsedMilliseconds / 1000);
+
             watch = System.Diagnostics.Stopwatch.StartNew();
             var csc_v2 = new CSC_v2(data, SA, lcp);
             var res_v2 = csc_v2.CompressAllSuffixes(safeResult);
             watch.Stop();
             Console.Out.WriteLine("Time taken for previous phrase usage + Lazy SA: " + (double)watch.ElapsedMilliseconds / 1000);
-            return;
 
             watch = System.Diagnostics.Stopwatch.StartNew();
             var csc_v1 = new CSC_v1(data, SA, lcp);
             var res_v1 = csc_v1.CompressAllSuffixes(safeResult);
             watch.Stop();
             Console.Out.WriteLine("Time taken for Lazy SA: " + (double)watch.ElapsedMilliseconds / 1000);
-
             if (!safeResult) return;
             watch = System.Diagnostics.Stopwatch.StartNew();
             var res_bad = new Phrase[data.Length][];
@@ -77,6 +83,7 @@ namespace Speciale.Common
             {
                 for (int j = 0; j < res_v1[i].Length; j++)
                 {
+                    // !res_v1[i][j].Equals(res_SAOrder[i][j])
                     if (!res_v1[i][j].Equals(res_bad[i][j]) || !res_v1[i][j].Equals(res_v2[i][j]) || !res_v1[i][j].Equals(res_v3[i][j]))
                     {
                         throw new Exception("Non deterministic result!");
@@ -97,16 +104,18 @@ namespace Speciale.Common
             LCP lcpDS = new LCP(S, SAText, LCPType.fast);
 
             var ST = BuildSTNaive(S, SAText);
-            var PTV1naive = BuildPTV1Naive(S, SAText, lcpDS);
             var PTV1fast = BuildPTV1Fast(S, SAText, lcpDS);
 
+            var PTV1naive = BuildPTV1Naive(S, SAText, lcpDS);
+ 
             var PTV2 = BuildPTV2Naive(PTV1naive);
+            var PTV2fast = BuildPTV2Fast(S, SAText, lcpDS);
 
 
 
             for (int i = 0; i < S.Length; i++)
             {
-                for (int j = (i+1); j < S.Length; j++)
+                for (int j = i+1; j < S.Length; j++)
                 {
                     try
                     {
@@ -119,9 +128,10 @@ namespace Speciale.Common
                         var STRes = SearchST(ST, patternPhrases);
                         var PTV1Res = SearchPTV1Naive(PTV1naive, patternPhrases);
                         var PTV1fastRes = SearchPTV1Fast(PTV1fast, patternPhrases);
-                        var PTV2Res = SearchPTV2(PTV2, patternPhrases);
+                        var PTV2Res = SearchPTV2Naive(PTV2, patternPhrases);
+                        var PTV2fastRes = SearchPTV2Fast(PTV2fast, patternPhrases);
 
-                        TestResults(new List<List<int>>() { STRes, PTV1Res, PTV2Res, PTV1fastRes });
+                        TestResults(new List<List<int>>() { STRes, PTV1Res, PTV2Res, PTV1fastRes, PTV2fastRes });
 
                     }
                     catch (Exception E)
@@ -176,12 +186,20 @@ namespace Speciale.Common
 
             Wait();
 
-            var PTV2 = BuildPTV2Naive(PTV1fast);
+            var PTV2naive = BuildPTV2Naive(PTV1fast);
             // JIT
-            var PTV2res = SearchPTV2(PTV2, patternPhrases);
-            SearchPTV2(PTV2, patternPhrases);
+            var PTV2naiveres = SearchPTV2Naive(PTV2naive, patternPhrases);
+            SearchPTV2Naive(PTV2naive, patternPhrases);
 
-            TestResults(new List<List<int>>() { STres, PTV2res, PTV1fastRes });
+            Wait();
+
+
+            var PTV2fast = BuildPTV2Fast(S, SAText, lcpDS);
+            // JIT
+            var PTV2fastres = SearchPTV2Naive(PTV2fast, patternPhrases);
+            SearchPTV2Naive(PTV2fast, patternPhrases);
+
+            TestResults(new List<List<int>>() { STres, PTV2naiveres, PTV2fastres, PTV1fastRes });
 
         }
 
@@ -276,7 +294,7 @@ namespace Speciale.Common
         public static PhraseTrieV2 BuildPTV2Fast(string S, int[] SA, LCP lcpDS)
         {
             DateTime t1 = DateTime.Now;
-            var PTV2 = PTV2Constructors.FastConstruction(S, SA, lcpDS);
+            var PTV2 = PTV2Constructors.FastConstruction2(S, SA, lcpDS);
             Console.Out.WriteLine("Preprocess: PT_V2 [FAST]. Time taken: " + (DateTime.Now - t1).TotalSeconds);
             return PTV2;
         }
@@ -289,11 +307,20 @@ namespace Speciale.Common
 
             return PTV2;
         }
-        public static List<int> SearchPTV2(PhraseTrieV2 PTV2, Phrase[] patternPhrases)
+        public static List<int> SearchPTV2Naive(PhraseTrieV2 PTV2, Phrase[] patternPhrases)
         {
             DateTime t1 = DateTime.Now;
             var res = PTV2.Search(patternPhrases);
-            Console.Out.WriteLine("Search: PT_V2. Time taken: " + (DateTime.Now - t1).TotalSeconds);
+            Console.Out.WriteLine("Search: PT_V2 [NAIVE]. Time taken: " + (DateTime.Now - t1).TotalSeconds);
+
+            return res;
+        }
+
+        public static List<int> SearchPTV2Fast(PhraseTrieV2 PTV2, Phrase[] patternPhrases)
+        {
+            DateTime t1 = DateTime.Now;
+            var res = PTV2.Search(patternPhrases);
+            Console.Out.WriteLine("Search: PT_V2 [FAST]. Time taken: " + (DateTime.Now - t1).TotalSeconds);
 
             return res;
         }

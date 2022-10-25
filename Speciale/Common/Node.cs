@@ -18,6 +18,8 @@ namespace Speciale.Common
         public int lexigraphicalI = int.MaxValue;
         public int lexigraphicalJ = int.MinValue;
         public int suffixIndex;
+        public Node parent;
+
 
         public abstract bool IsLeaf();
 

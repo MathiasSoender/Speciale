@@ -11,14 +11,14 @@ using System.Threading.Tasks;
 
 namespace Speciale.CSC
 {
-    public class CSC_v3
+    public class CSC_SAOrder
     {
 
         LCP lcpDS;
         string data;
         int[] repeatLengths;
 
-        // suffix index => pred SA index
+
         // predecessorsLazy[i] = -2 -> represents a value not being set yet
         // predecessorsLazy[i] = -1 -> represents that no pred can be found
         int[] predecessorsLazy;
@@ -26,9 +26,9 @@ namespace Speciale.CSC
 
 
         int[] SALazy;
-        int[] SALazyInv;
+        public int[] SALazyInv;
 
-        public CSC_v3(string data, int[] SA, LCP lcpDS = null)
+        public CSC_SAOrder(string data, int[] SA, LCP lcpDS = null)
         {
             this.data = data;
 
@@ -72,8 +72,7 @@ namespace Speciale.CSC
                     return new Phrase() { len = len1, pos = succ };
                 }
             }
-
-            if (len1 >= len2 && len1 >= len3)
+            else if (len1 >= len2 && len1 >= len3)
             {
                 return new Phrase() { len = len1, pos = pred };
             }
@@ -82,54 +81,58 @@ namespace Speciale.CSC
                 return new Phrase() { len = len2, pos = succ };
 
             }
-            else if (len3 > len1 && len3 > len2)
+            else
             {
                 return new Phrase() { len = len3, pos = (matched - 1) };
             }
-            else
-            {
-                throw new Exception("Should never happen");
-            }
+
         }
+
 
         public Phrase[][] CompressAllSuffixes(bool safeResult = true)
         {
             var res = safeResult ? new Phrase[data.Length][] : new Phrase[1][];
             Phrase[] curRes = null;
+            int prevSuffixIndex = -1;
+
             for (int i = 0; i < data.Length; i++)
             {
-                curRes = CompressOneSuffix(i, curRes);
-                if (safeResult) res[i] = curRes;
+                var suffixIndex = SALazy[i];
+                curRes = CompressOneSuffix(suffixIndex, prevSuffixIndex, curRes);
+                if (safeResult) res[suffixIndex] = curRes;
+                prevSuffixIndex = suffixIndex;
+
+                // Can delete by knowing which SA indexes were used.
+                for (int j = 0; j < SALazy.Length; j++)
+                {
+                    predecessorsLazy[j] = -2; // Placeholder representing not being set yet
+                    successorsLazy[j] = -2;
+                }
+
+
             }
             return res;
 
         }
 
         // Should be used with care! Can only be used in suffix order; ie curSuffix = 0, curSuffix = 1, ..
-        public Phrase[] CompressOneSuffix(int curSuffix, Phrase[] prevPhrases, int neededMatches = int.MaxValue)
+        // Add LCP from previous phrase (previous SA index)
+        public Phrase[] CompressOneSuffix(int curSuffix, int prevSuffixIndex, Phrase[] prevPhrases)
         {
             HashSet<char> seenChars = new HashSet<char>();
             List<Phrase> res = new List<Phrase>();
             int matched = 0;
             int suffixLength = data.Length - curSuffix;
 
-            int prevPhraseIndex = 1; // Skip the first phrase (never used)
-            int prevPhraseMatched = 0;
-            bool usePrevPhrases = prevPhrases != null;
+            // ReuseByLCP(curSuffix, prevSuffixIndex, prevPhrases, ref res, ref seenChars, ref matched);
 
-            while (matched < suffixLength && neededMatches >= matched)
+            while (matched < suffixLength)
             {
                 int i = matched + curSuffix;
-                Phrase reusablePhrase;
-
                 if (!seenChars.Contains(data[i]))
                 {
                     seenChars.Add(data[i]);
                     res.Add(new Phrase() { len = 0, pos = data[i] });
-                }
-                else if (usePrevPhrases && CanPreviousPhrasesBeUsed(prevPhraseIndex, prevPhraseMatched, matched, prevPhrases, out reusablePhrase))
-                {
-                    res.Add(new Phrase() { len = reusablePhrase.len, pos = reusablePhrase.pos - 1 });
                 }
                 else
                 {
@@ -139,9 +142,8 @@ namespace Speciale.CSC
                     var bestPhrase = FindBestMatch(predLazySAindexed, succLazySAindexed, curSuffix, matched);
                     res.Add(bestPhrase);
                 }
-                matched += res.Last().len == 0 ? 1 : res.Last().len;
+                matched += Math.Max(res.Last().len, 1);
 
-                UpdatePrevPhrases(ref prevPhraseIndex, ref prevPhraseMatched, matched, prevPhrases);
 
             }
 
@@ -209,115 +211,119 @@ namespace Speciale.CSC
         private int FindLazySuccessor(int curSuffix, int matched)
         {
 
+            int i = SALazyInv[curSuffix + matched] + 1;
 
-            if (successorsLazy[matched + curSuffix] == -2)
+            while (i < SALazy.Length)
             {
-                int succIndex = FindNextSucc(curSuffix, matched);
-                successorsLazy[matched + curSuffix] = succIndex;
-                return succIndex;
-            }
-
-            else
-            {
-                if (successorsLazy[matched + curSuffix] == -1)
+                if (SALazy[i] - curSuffix < 0)
                 {
-                    return -1;
-                }
-                // Compute new
-                if (SALazy[successorsLazy[matched + curSuffix]] - curSuffix < 0)
-                {
-                    int succIndex = FindNextSucc(curSuffix, matched, successorsLazy[matched + curSuffix]);
-                    successorsLazy[matched + curSuffix] = succIndex;
-                    return succIndex;
+                    i++;
+                    continue;
                 }
 
+                else if (SALazy[i] < curSuffix + matched)
+                {
+                    successorsLazy[matched + curSuffix] = i;
+                    return i;
+                }
+                // Bigger element is found, check if pointer can be used
+                else
+                {
+                    // The pointer could not be found (but has been tried to), which means that nothing smaller can be found
+                    if (successorsLazy[i] == -1)
+                    {
+                        break;
+                    }
+                    // Pointer has not been set
+                    else if (successorsLazy[i] == -2)
+                    {
+                        i++;
+                    }
+                    // Pointer has been set, use.
+                    else
+                    {
+                        i = successorsLazy[i];
+                    }
+
+
+                }
 
             }
 
-            return successorsLazy[matched + curSuffix];
-
+            successorsLazy[SALazyInv[curSuffix + matched]] = -1;
+            return -1;
         }
-        private int FindNextPred(int curSuffix, int matched, int startPos = -1)
-        {
-            int predIndex = -1;
-            int startIndex = startPos == -1 ? SALazyInv[matched + curSuffix] : startPos;
 
-            for (int i = startIndex - 1; i >= 0; i--)
-            {
-                if (SALazy[i] < matched + curSuffix && SALazy[i] - curSuffix >= 0)
-                {
-                    predIndex = i;
-                    break;
-                }
-            }
-
-            return predIndex;
-        }
         private int FindLazyPredecessor(int curSuffix, int matched)
         {
 
-            if (predecessorsLazy[matched + curSuffix] == -2)
-            {
-                int predIndex = FindNextPred(curSuffix, matched);
-                predecessorsLazy[matched + curSuffix] = predIndex;
-                return predIndex;
-            }
+            int i = SALazyInv[curSuffix + matched] - 1;
 
-            else
+            while(i >= 0)
             {
-                if (predecessorsLazy[matched + curSuffix] == -1)
+                if (SALazy[i] - curSuffix < 0)
                 {
-                    return -1;
-                }
-                // Compute new
-                if (SALazy[predecessorsLazy[matched + curSuffix]] - curSuffix < 0)
-                {
-                    int predIndex = FindNextPred(curSuffix, matched, predecessorsLazy[matched + curSuffix]);
-                    predecessorsLazy[matched + curSuffix] = predIndex;
-                    return predIndex;
+                    i--;
+                    continue;
                 }
 
+                else if (SALazy[i] < curSuffix + matched)
+                {
+                    predecessorsLazy[matched + curSuffix] = i;
+                    return i;
+                }
+                // Bigger element is found, check if pointer can be used
+                else
+                {
+                    // The pointer could not be found (but has been tried to), which means that nothing smaller can be found
+                    if (predecessorsLazy[i] == -1)
+                    {
+                        break;
+                    }
+                    // Pointer has not been set
+                    else if (predecessorsLazy[i] == -2)
+                    {
+                        i--;
+                    }
+                    // Pointer has been set, use.
+                    else
+                    {
+                        i = predecessorsLazy[i];
+                    }
+
+
+                }
 
             }
 
-            return predecessorsLazy[matched + curSuffix];
+            predecessorsLazy[SALazyInv[curSuffix + matched]] = -1;
+            return -1;
 
         }
 
 
-        private bool CanPreviousPhrasesBeUsed(int prevPhraseIndex, int prevPhraseMatched, int matched, Phrase[] prevPhrases, out Phrase reusablePhrase)
+        // Also check if self-referencing could be better
+        private void ReuseByLCP(int curSuffix, int prevSuffixIndex, Phrase[] prevPhrases, ref List<Phrase> res, ref HashSet<char> seenChars, ref int matched)
         {
-            reusablePhrase = null;
-            if (prevPhrases.Length <= prevPhraseIndex)
-                return false;
+            if (prevPhrases == null || prevSuffixIndex == -1) return;
 
-            // i+1 as we are now a suffix 1 smaller, meaning that prevPhrases is indexed according to prev suffix.
-            if (prevPhraseMatched == matched && prevPhrases[prevPhraseIndex].pos != 0 && prevPhrases[prevPhraseIndex].len != 0)
+            int lcpVal = lcpDS.GetPrefixLength(curSuffix, prevSuffixIndex);
+            int prevPhrasesIndex = 0;
+
+
+            while(prevPhrasesIndex + 1 < prevPhrases.Length && matched + Math.Max(prevPhrases[prevPhrasesIndex + 1].len, 1) <= lcpVal && matched + Math.Max(prevPhrases[prevPhrasesIndex].len, 1) <= lcpVal)
             {
-                reusablePhrase = prevPhrases[prevPhraseIndex];
-                return true;
+                res.Add(prevPhrases[prevPhrasesIndex]);
+
+                if (prevPhrases[prevPhrasesIndex].len == 0)
+                    seenChars.Add((char)prevPhrases[prevPhrasesIndex].pos);
+
+                matched += Math.Max(prevPhrases[prevPhrasesIndex].len, 1);
+                prevPhrasesIndex++;
 
             }
-            return false;
-        }
 
-        private void UpdatePrevPhrases(ref int prevPhraseIndex, ref int prevPhraseMatched, int matched, Phrase[] prevPhrases)
-        {
-            if (prevPhrases == null)
-                return;
 
-            // Setting prevPhraseIndex to large val ensures that we return false on CanPReviousPhraseBeUsed.
-            if (prevPhrases.Length <= prevPhraseIndex)
-            {
-                prevPhraseIndex = int.MaxValue;
-                return;
-            }
-
-            while (matched > prevPhraseMatched)
-            {
-                prevPhraseMatched += prevPhrases[prevPhraseIndex].len == 0 ? 1 : prevPhrases[prevPhraseIndex].len;
-                prevPhraseIndex++;
-            }
 
         }
 

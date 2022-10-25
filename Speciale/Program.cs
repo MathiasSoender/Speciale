@@ -15,27 +15,32 @@ namespace Speciale
         static void Main(string[] args)
         {
 
-
             string S_file = "C:\\Users\\Mathi\\Desktop\\Speciale\\Speciale\\bin\\Debug\\t.txt";
             string P_file = "C:\\Users\\Mathi\\Desktop\\Speciale\\Speciale\\bin\\Debug\\tpattern.txt";
-            Tests.GenerateData("ab", 100, S_file);
-            // Tests.GenerateData("ab", 10, P_file);
-
+            Tests.GenerateData("a", 50000, S_file);
+            Tests.GenerateData("ab", 10, P_file);
             Statics.PruneTextFile(S_file, P_file);
-            Tests.TestAllSubstringsOfData(S_file);
 
-
-            /*
             string S = File.ReadAllText(S_file);
-            int[] SA = SAWrapper.GenerateSuffixArrayDLL(S, false);
-            LCP lcpDS = new LCP(S, SA, LCPType.fast);
-            Tests.BuildPTV2Fast(S, SA, lcpDS);
-            */
+            int[] SAText = Tests.TestSA(S);
+            LCP lcpDS = new LCP(S, SAText, LCPType.fast);
+
+
+            Tests.BuildPTV2Fast(S, SAText, lcpDS);
+
+            // Tests.TestAll(S_file, P_file);
+
+
+
+
+            return;
+
+            // Tests.TestConsecutiveSuffixCompressors(File.ReadAllText(S_file), true);
+
 
             //Tests.TestAllSubstringsOfData(S_file);
             //Tests.TestAll(S_file, P_file);
 
-            // Tests.TestConsecutiveSuffixCompressors(File.ReadAllText(S_file), false);
             return;
 
 

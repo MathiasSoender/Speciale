@@ -20,8 +20,6 @@ namespace Speciale.V2
     {
         public LCP lcpDS;
 
-
-
         public List<int> Search(Phrase[] patternPhrases)
         {
 
@@ -32,10 +30,6 @@ namespace Speciale.V2
             int p_k;
             int r_k;
             int patternLength = phraseIndexToDecompLength[patternPhrases.Length];
-            int patternLength2 = phraseIndexToDecompLength[patternPhrases.Length];
-
-            if (patternLength != patternLength2)
-                throw new Exception("DAMN");
 
             while (curPhraseIndex < patternPhrases.Length)
             {
@@ -48,10 +42,7 @@ namespace Speciale.V2
                     }
 
 
-                    p_k = Phrase.FindDecompressedLength(patternPhrases.Take(curPhraseIndex).ToArray());
-                    int pk3 = phraseIndexToDecompLength[curPhraseIndex];
-                    if (p_k != pk3)
-                        throw new Exception("DAMN");
+                    p_k = phraseIndexToDecompLength[curPhraseIndex];
                     r_k = p_k - patternPhrases[curPhraseIndex].pos;
 
                     return PhraseTrieV1.BinarySearchFromNode(curNode, SA, lcpDS, p_k, r_k, patternPhrases, curPhraseIndex, patternLength, S);
@@ -61,11 +52,7 @@ namespace Speciale.V2
                 int matched = 0;
                 int i = child.leafPointer.suffixIndex;
                 int edgeLength = child.length;
-                p_k = Phrase.FindDecompressedLength(patternPhrases.Take(curPhraseIndex).ToArray());
-                int pk2 = phraseIndexToDecompLength[curPhraseIndex];
-                if (p_k != pk2)
-                    throw new Exception("DAMN");
-
+                p_k = phraseIndexToDecompLength[curPhraseIndex];
                 int p_k_start = p_k;
 
                 while ((curPhraseIndex+matched) < patternPhrases.Length && (p_k - p_k_start) < edgeLength) // && matched < edgeLength)
@@ -121,20 +108,59 @@ namespace Speciale.V2
 
         }
 
+        public void Equals(PhraseTrieV2 otherTrie)
+        {
+            Stack<PTV2Node> nodes = new Stack<PTV2Node>();
+            Stack<PTV2Node> otherNodes = new Stack<PTV2Node>();
+
+            nodes.Push((PTV2Node)root);
+            otherNodes.Push((PTV2Node)otherTrie.root);
+
+            while (nodes.Count > 0)
+            {
+                PTV2Node node = nodes.Pop();
+                PTV2Node otherNode = otherNodes.Pop();
+
+                if (node.lexigraphicalI == otherNode.lexigraphicalI && node.lexigraphicalJ == otherNode.lexigraphicalJ && node.length == otherNode.length)
+                {
+                    foreach(var kv in node.childrenMap)
+                    {
+                        if (otherNode.childrenMap.ContainsKey(kv.Key))
+                        {
+                            nodes.Push(kv.Value);
+                            otherNodes.Push(otherNode.childrenMap[kv.Key]);
+                        }
+                        else
+                        {
+                            throw new Exception("PTV2 trees are not equal");
+                        }
+                    }
+                }
+                else
+                {
+                    throw new Exception("PTV2 trees are not equal");
+                }
+            }
+
+
+        }
+
+
 
     }
 
 
 
 
-    public class PTV2Node : Node
+    public class PTV2Node : PTV1Node
     {
         public int length;
-
         public PTV2Node leafPointer;
+        public int UUID; // Unused
+        public int totalLength; // Used under construction
 
 
-        public Dictionary<Phrase, PTV2Node> childrenMap;
+        public new Dictionary<Phrase, PTV2Node> childrenMap;
 
         public override IEnumerable<Node> children
         {
@@ -154,18 +180,30 @@ namespace Speciale.V2
 
         }
 
-        // Internal node constructor
+        // Internal node constructors
 
         public PTV2Node(int length) : this()
         {
             this.length = length;
         }
 
-        // Leaf constructor
+        public PTV2Node(List<Phrase> phrases) : base(phrases)
+        {
+            childrenMap = new Dictionary<Phrase, PTV2Node>();
+        }
+
+
+        // Leaf constructors
         public PTV2Node(int length, int suffixIndex) : this(length)
         {
             this.suffixIndex = suffixIndex;
             leafPointer = this;
+        }
+
+        public PTV2Node(List<Phrase> phrases, int suffixIndex) : base(phrases, suffixIndex)
+        {
+            leafPointer = this;
+            childrenMap = new Dictionary<Phrase, PTV2Node>();
         }
 
 
@@ -197,8 +235,6 @@ namespace Speciale.V2
                 leafPointer = leafRef;
             }
 
-
-
         }
 
 
@@ -206,5 +242,19 @@ namespace Speciale.V2
         {
             return childrenMap.Count == 0;
         }
+
+
+        
+        public void SanitizeNode()
+        {
+            if (phrases == null)
+                return;
+
+            this.length = Phrase.FindDecompressedLength(phrases.ToArray());
+            phrases.Clear();
+            phrases = null;
+        }
+
+
     }
 }

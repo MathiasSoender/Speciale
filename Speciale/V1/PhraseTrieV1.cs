@@ -221,7 +221,36 @@ namespace Speciale.V1
         }
 
 
+        public void PrunablePhrases()
+        {
+            var leaves = FindLeaves(root);
+            var prunable = new List<Phrase>();
+            foreach (var l in leaves)
+            {
+                var q = (PTV1Node)l;
+                prunable.AddRange(q.phrases);
+            }
+
+            var nonprunable = new List<Phrase>();
+            Stack<PTV1Node> stack = new Stack<PTV1Node>();
+            stack.Push((PTV1Node)root);
+
+            while (stack.Count() > 0)
+            {
+                var n = stack.Pop();
+                nonprunable.AddRange(n.phrases);
+
+                foreach (var c in n.children)
+                    stack.Push((PTV1Node)c);
+            }
+
+            Console.Out.WriteLine("Prunable phrases: " + prunable.Count() + " out of total phrases: " + nonprunable.Count() + " which is (%): " + (double)prunable.Count() * 100 / (double)nonprunable.Count());
+        }
+
+
     }
+
+
 
 
 
