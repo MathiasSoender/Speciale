@@ -44,69 +44,12 @@
 #define STACK_MASK ((STACK_SIZE) - 1)
 
 // An auxiliary routine used during parsing.
-int parse_phrase(unsigned char* X, int n, int i, int psv, int nsv,
-    std::vector<std::pair<int, int> >* F);
+int parse_phrase(unsigned char* X, int n, int i, int psv, int nsv, int* phrasePositions, int* phraseLengths, int nfactors);
 
-int kkp2(unsigned char* X, int* SA, int n,
-    std::vector<std::pair<int, int> >* F) {
-    if (n == 0) return 0;
-    int* CS = new int[n + 5];
-    int* stack = new int[STACK_SIZE + 5], top = 0;
-    stack[top] = 0;
-
-    // Compute PSV_text for SA and save into CS.
-    CS[0] = -1;
-    for (int i = 1; i <= n; ++i) {
-        int sai = SA[i - 1] + 1;
-        while (stack[top] > sai) --top;
-        if ((top & STACK_MASK) == 0) {
-            if (stack[top] < 0) {
-                // Stack empty -- use implicit.
-                top = -stack[top];
-                while (top > sai) top = CS[top];
-                stack[0] = -CS[top];
-                stack[1] = top;
-                top = 1;
-            }
-            else if (top == STACK_SIZE) {
-                // Stack is full -- discard half.
-                for (int j = STACK_HALF; j <= STACK_SIZE; ++j)
-                    stack[j - STACK_HALF] = stack[j];
-                stack[0] = -stack[0];
-                top = STACK_HALF;
-            }
-        }
-
-        int addr = sai;
-        CS[addr] = std::max(0, stack[top]);
-        ++top;
-        stack[top] = sai;
-    }
-    delete[] stack;
-
-    // Compute the phrases.
-    CS[0] = 0;
-    int nfactors = 0, next = 1, nsv, psv;
-    for (int t = 1; t <= n; ++t) {
-        psv = CS[t];
-        nsv = CS[psv];
-        if (t == next) {
-            next = parse_phrase(X, n, t - 1, psv - 1, nsv - 1, F) + 1;
-            ++nfactors;
-        }
-        CS[t] = nsv;
-        CS[psv] = t;
-    }
-
-    // Clean up.
-    delete[] CS;
-    return nfactors;
-}
 
 // TODO: current version overwrites SA, this can
 // be avoided, similarly as in KKP2.
-int kkp3(unsigned char* X, int*& SA, int n,
-    std::vector<std::pair<int, int> >* F) {
+int kkp3(unsigned char* X, int*& SA, int n, int* phrasePositions, int* phraseLengths) {
     if (n == 0) return 0;
     int* CPSS = new int[2 * n + 5];
 
@@ -139,8 +82,8 @@ int kkp3(unsigned char* X, int*& SA, int n,
 
 
     // Compute the phrases.
-
-    if (F) F->push_back(std::make_pair(X[0], 0));
+    phrasePositions[0] = X[0];
+    phraseLengths[0] = 0;
     int i = 1, nfactors = 1;
     while (i < n) {
         int addr = (i << 1);
@@ -148,7 +91,7 @@ int kkp3(unsigned char* X, int*& SA, int n,
         int nsv = CPSS[addr + 1];
 
 
-        i = parse_phrase(X, n, i, psv, nsv, F);
+        i = parse_phrase(X, n, i, psv, nsv, phrasePositions, phraseLengths, nfactors);
         ++nfactors;
     }
 
@@ -157,66 +100,8 @@ int kkp3(unsigned char* X, int*& SA, int n,
     return nfactors;
 }
 
-int kkp1s(unsigned char* X, int n, std::string SA_fname,
-    std::vector<std::pair<int, int> >* F) {
-    if (n == 0) return 0;
-    int* CS = new int[n + 5];
-    int* stack = new int[STACK_SIZE + 5], top = 0;
-    stack[top] = 0;
 
-    // Compute PSV_text for SA and save into CS.
-    SA_streamer* SAs = new SA_streamer(SA_fname);
-    CS[0] = -1;
-    for (int i = 1; i <= n; ++i) {
-        int sai = SAs->read() + 1;
-        while (stack[top] > sai) --top;
-        if ((top & STACK_MASK) == 0) {
-            if (stack[top] < 0) {
-                // Stack empty -- use implicit.
-                top = -stack[top];
-                while (top > sai) top = CS[top];
-                stack[0] = -CS[top];
-                stack[1] = top;
-                top = 1;
-            }
-            else if (top == STACK_SIZE) {
-                // Stack is full -- discard half.
-                for (int j = STACK_HALF; j <= STACK_SIZE; ++j)
-                    stack[j - STACK_HALF] = stack[j];
-                stack[0] = -stack[0];
-                top = STACK_HALF;
-            }
-        }
-
-        int addr = sai;
-        CS[addr] = std::max(0, stack[top]);
-        ++top;
-        stack[top] = sai;
-    }
-    delete[] stack;
-    delete SAs;
-
-    // Compute the phrases.
-    CS[0] = 0;
-    int nfactors = 0, next = 1, nsv, psv;
-    for (int t = 1; t <= n; ++t) {
-        psv = CS[t];
-        nsv = CS[psv];
-        if (t == next) {
-            next = parse_phrase(X, n, t - 1, psv - 1, nsv - 1, F) + 1;
-            ++nfactors;
-        }
-        CS[t] = nsv;
-        CS[psv] = t;
-    }
-
-    // Clean up.
-    delete[] CS;
-    return nfactors;
-}
-
-int parse_phrase(unsigned char* X, int n, int i, int psv, int nsv,
-    std::vector<std::pair<int, int> >* F) {
+int parse_phrase(unsigned char* X, int n, int i, int psv, int nsv, int* phrasePositions, int* phraseLengths, int nfactors) {
     int pos, len = 0;
     if (nsv == -1) {
         while (X[psv + len] == X[i + len]) ++len;
@@ -239,6 +124,8 @@ int parse_phrase(unsigned char* X, int n, int i, int psv, int nsv,
         }
     }
     if (len == 0) pos = X[i];
-    if (F) F->push_back(std::make_pair(pos, len));
+    phraseLengths[nfactors] = len;
+    phrasePositions[nfactors] = pos;
+
     return i + std::max(1, len);
 }

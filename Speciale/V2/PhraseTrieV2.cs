@@ -162,6 +162,11 @@ namespace Speciale.V2
 
         public new Dictionary<Phrase, PTV2Node> childrenMap;
 
+        public void AddChild(Phrase key, PTV2Node child)
+        {
+            childrenMap.Add(key, child);
+            child.parent = this;
+        }
         public override IEnumerable<Node> children
         {
             get

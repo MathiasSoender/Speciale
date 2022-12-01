@@ -19,6 +19,7 @@ namespace Speciale.Common
         public int lexigraphicalJ = int.MinValue;
         public int suffixIndex;
         public Node parent;
+        public int labelDepth;
 
 
         public abstract bool IsLeaf();

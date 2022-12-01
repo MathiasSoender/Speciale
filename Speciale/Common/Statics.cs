@@ -1,44 +1,64 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
+﻿using System.Diagnostics;
 using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Linq;
 
 namespace Speciale.Common
 {
-    public static class Statics
+    public enum ConstructionType
     {
-        // Make sure to build GenerateSA.exe + LZ77.exe to debug/release folder
-        // These are built directly to bin/debug or bin/release (so we must use "GetParent(...)")
-        public static ProcessStartInfo GetStartInfo(string exeName, string arguments)
+        fast,
+        naive,
+        KKP3,
+        CSC,
+        LexicoOrdered
+    }
+
+    public class MemoryCounter
+    {
+        readonly PerformanceCounter ramCounter = new PerformanceCounter("Process", "Working Set", Process.GetCurrentProcess().ProcessName);
+        private float maxMemory;
+        public void MeasureMemory()
         {
-
-            ProcessStartInfo psi = new ProcessStartInfo();
-
-            psi.FileName = GetDLLorEXEpath(exeName);
-
-            psi.CreateNoWindow = true;
-            psi.Arguments = arguments;
-            return psi;
+            maxMemory = Math.Max(ramCounter.NextValue(), maxMemory);
         }
 
-        public static string GetDLLorEXEpath(string name)
+        public MemoryCounter()
         {
-            string filename;
-            if (new DirectoryInfo(AppContext.BaseDirectory).Name.Contains("net"))
-            {
-                var parentDir = Directory.GetParent(AppContext.BaseDirectory);
-                filename = Path.Combine(parentDir.Parent.FullName, name);
+            MeasureMemory();
+            maxMemory = 0;
+        }
 
-            }
-            else
-            {
-                filename = Path.Combine(AppContext.BaseDirectory, name);
+        public float GetMaxMemory()
+        {
+            return maxMemory;
+        }
 
+        
+    }
+
+    public static class Statics
+    {
+        public static void Guard(int compRounds, DateTime startTime, MemoryCounter MC)
+        {
+            if (compRounds % 25000 == 0)
+            {
+                MC.MeasureMemory();
+                if (MC.GetMaxMemory() / (1024.0 * 1024.0 * 1024.0) > Tester.MAX_GB)
+                    throw new OutOfMemoryException("Construction has exceed maximum memory");
             }
-            return filename;
+            if ((DateTime.Now - startTime).TotalSeconds > Tester.TIME_OUT_SECONDS)
+            {
+                throw new TimeoutException("Construction has timed out.");
+            }
+        }
+
+
+        public static void GenerateData(string alphabet, int n, string outfile)
+        {
+            Random random = new Random();
+
+            var data = new string(Enumerable.Repeat(alphabet, n).Select(s => s[random.Next(s.Length)]).ToArray());
+
+            File.WriteAllText(outfile, data);
         }
 
         public static int[] InverseArray(int[] arr)
@@ -52,7 +72,7 @@ namespace Speciale.Common
             return indexToLexi;
         }
 
-        public static void PruneTextFile(string textfile, string patternfile, bool pruneDanish = true)
+        public static void PruneTextFile(string textfile, string patternfile = null, bool pruneDanish = true)
         {
 
             StringBuilder Pruner(string s, out int maxChar, out int maxCharPos)
@@ -103,25 +123,25 @@ namespace Speciale.Common
 
 
             var s = File.ReadAllText(textfile);
-            var p = File.ReadAllText(patternfile);
+            var p = patternfile == null ? null : File.ReadAllText(patternfile);
 
             int maxCharS;
             int maxCharPosS;
             int maxCharP;
 
             var newS = Pruner(s, out maxCharS, out maxCharPosS);
-            var newP = Pruner(p, out _, out _);
+            var newP = p == null ? null : Pruner(p, out _, out _);
 
 
 
             if (s[s.Length - 1] <= maxCharS && maxCharPosS != s.Length - 1)
             {
-                Console.Out.WriteLine("The last symbol of S does not have greatest lexigraphical value (of S and P). Appending S with new symbol of greatest value");
+                // Console.Out.WriteLine("The last symbol of S does not have greatest lexigraphical value (of S and P). Appending S with new symbol of greatest value");
                 newS.Append((char)(maxCharS + 1));
             }
 
             File.WriteAllText(textfile, newS.ToString());
-            File.WriteAllText(patternfile, newP.ToString());
+            if (p != null) File.WriteAllText(patternfile, newP.ToString());
 
         }
     }

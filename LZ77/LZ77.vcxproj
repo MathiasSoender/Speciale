@@ -46,12 +46,12 @@
     <PlatformToolset>v143</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
   </PropertyGroup>
@@ -106,12 +106,13 @@ clean:
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <PostBuildEvent>
       <Command>if $(ConfigurationName) == Debug xcopy /y "$(TargetDir)*.*" "$(SolutionDir)Speciale\bin\Debug\net6.0"
+if $(ConfigurationName) == Release xcopy /y "$(TargetDir)*.*" "$(SolutionDir)Speciale\bin\Release\net6.0"
 </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <PostBuildEvent>
-      <Command>if $(ConfigurationName) == Release xcopy /y "$(TargetDir)*.*" "$(SolutionDir)Speciale\bin\Release\"
+      <Command>if $(ConfigurationName) == Release xcopy /y "$(TargetDir)*.*" "$(SolutionDir)Speciale\bin\Release\net6.0"
 </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>

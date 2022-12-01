@@ -7,40 +7,53 @@ using Speciale.V2;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography.X509Certificates;
 using Speciale.CSC;
+using Speciale.SuffixTree;
+using System.Diagnostics;
 
 namespace Speciale
 {
     public class Program
     {
+        public static void RunProgram(string[] args)
+        {
+            string inputfile = args[0];
+            string enumtype = args[1];
+            TestType type = TestingSuite.StringToTestType(enumtype);
+
+            TestingSuite.PreprocessingTest(inputfile, type);
+        }
+
         static void Main(string[] args)
         {
 
-            string S_file = "C:\\Users\\Mathi\\Desktop\\Speciale\\Speciale\\bin\\Debug\\t.txt";
-            string P_file = "C:\\Users\\Mathi\\Desktop\\Speciale\\Speciale\\bin\\Debug\\tpattern.txt";
-            Tests.GenerateData("a", 50000, S_file);
-            Tests.GenerateData("ab", 10, P_file);
-            Statics.PruneTextFile(S_file, P_file);
+            Tester T = new Tester("test.txt");
 
-            string S = File.ReadAllText(S_file);
-            int[] SAText = Tests.TestSA(S);
-            LCP lcpDS = new LCP(S, SAText, LCPType.fast);
+            var PTnew = (PhraseTrieV2)T.BuildTrie(TestType.ConstructPTV2Lexico);
+            var PTold = (PhraseTrieV2)T.BuildTrie(TestType.ConstructPTV2CSC);
+
+            PTnew.Equals(PTold);
+            // TestingSuite.PreprocessingTest("a", TestType.ConstructPTV2CSC);
 
 
-            Tests.BuildPTV2Fast(S, SAText, lcpDS);
-
-            // Tests.TestAll(S_file, P_file);
-
+            // Running from IDE
+            RunProgram(args);
 
 
-
-            return;
-
-            // Tests.TestConsecutiveSuffixCompressors(File.ReadAllText(S_file), true);
+            //List<string> testFiles = new List<string> { "C:\\Users\\Mathi\\Desktop\\Speciale\\Speciale\\bin\\Debug\\t.txt" };
+            // TestingSuite.PreprocessingTest("C:\\Users\\Mathi\\Desktop\\Speciale\\TestFiles\\temp.txt", TestType.ConstructSTnaive);
 
 
-            //Tests.TestAllSubstringsOfData(S_file);
-            //Tests.TestAll(S_file, P_file);
 
+
+            /*
+            Tester tFast = new Tester("C:\\Users\\Mathi\\Desktop\\Speciale\\TestFiles\\temp.txt");
+            var suffixFast = tFast.BuildSTFast();
+
+            Tester tNaive = new Tester("C:\\Users\\Mathi\\Desktop\\Speciale\\TestFiles\\temp.txt");
+            var suffixNaive = tNaive.BuildSTNaive();
+
+            suffixFast.Equals(suffixNaive);
+            */
             return;
 
 

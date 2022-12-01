@@ -1,4 +1,5 @@
 ﻿using Speciale.Common;
+using Speciale.V2;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -52,9 +53,14 @@ namespace Speciale.SuffixTree
 
             return GenerateOutputOfSearch(curNode);
 
-
-
         }
+
+
+
+
+
+
+
 
         public string IndexOfS(int i, int j)
         {
@@ -80,12 +86,55 @@ namespace Speciale.SuffixTree
         }
 
 
+        public void Equals(SuffixTree otherTrie)
+        {
+            Stack<STNode> nodes = new Stack<STNode>();
+            Stack<STNode> otherNodes = new Stack<STNode>();
+
+            nodes.Push((STNode)root);
+            otherNodes.Push((STNode)otherTrie.root);
+
+            while (nodes.Count > 0)
+            {
+                STNode node = nodes.Pop();
+                STNode otherNode = otherNodes.Pop();
+
+                if (node.lexigraphicalI == otherNode.lexigraphicalI && node.lexigraphicalJ == otherNode.lexigraphicalJ && IndexOfS(node.indexI, node.indexJ) == IndexOfS(otherNode.indexI, otherNode.indexJ))
+                {
+                    foreach (var kv in node.childrenMap)
+                    {
+                        if (otherNode.childrenMap.ContainsKey(kv.Key))
+                        {
+                            nodes.Push(kv.Value);
+                            otherNodes.Push(otherNode.childrenMap[kv.Key]);
+                        }
+                        else
+                        {
+                            throw new Exception("Suffix trees are not equal");
+                        }
+                    }
+                }
+                else
+                {
+                    throw new Exception("Suffix trees are not equal");
+                }
+            }
+
+
+        }
+
 
     }
 
     public class STNode : Node
     {
         public Dictionary<char, STNode> childrenMap;
+
+        public void AddChild(char key, STNode child)
+        {
+            childrenMap.Add(key, child);
+            child.parent = this;
+        }
 
         public override IEnumerable<Node> children
         {

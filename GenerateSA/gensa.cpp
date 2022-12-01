@@ -37,40 +37,6 @@
 #include <vector>
 #include <string>
 
-void SingleGenerate(char* file) {
-    unsigned char* text;
-    int length;
-    read_text(file, text, length);
-
-    // Alocate and compute the suffix array.  
-    int* sa = new int[length];
-    if (!sa) {
-        std::cerr << "\nError: allocating " << length << " words failed\n";
-        std::exit(EXIT_FAILURE);
-    }
-
-
-    std::cerr << "Computing suffix array... ";
-    std::clock_t timestamp = std::clock();
-    divsufsort(text, sa, length);
-    std::cerr << elapsed(timestamp) << " secs\n";
-
-
-
-    // Write the output on standard output.
-    std::string outfilename = std::string(file) + ".sa";
-    std::cerr << "Writing the output to " << outfilename << "... ";
-    std::ofstream outfile;
-
-    outfile.open(outfilename, std::ios::binary);
-    outfile.write((char*)sa, sizeof(int) * length);
-    outfile.close();
-    std::cerr << std::endl;
-
-    // Clean up.
-    delete[] text;
-    delete[] sa;
-}
 
 extern "C" {
 
@@ -90,63 +56,4 @@ extern "C" {
 
 
 
-void SuffixesGenerate(char* file)
-{
-
-    unsigned char* text;
-    int length;
-
-    read_text(file, text, length);
-
-    for (int i{ 0 }; i < length; i++) {
-        
-        std::vector<unsigned char> bufferVector(length - i + 1);
-        unsigned char* bufferPtr = &bufferVector[0];
-
-        memcpy(bufferPtr, &text[i], length - i);
-        bufferPtr[length - i] = '\0';
-
-        int* sa = new int[length - i];
-        divsufsort(bufferPtr, sa, length - i);
-
-
-        std::string outfilename = std::string(file) + std::to_string(i) + ".sa";
-
-        std::ofstream outfile;
-        outfile.open(outfilename, std::ios::binary);
-        outfile.write((char*)sa, sizeof(int) * (length - i ));
-        outfile.close();
-
-        bufferVector.clear();
-
-    }
-
-}
-
-
-
-int main(int argc, char** argv) {
-    if (argc != 3) {
-        std::cerr << "usage: " << argv[0] << " -arg1 infile \n\n";
-        std::cerr << "[arg1] = single    for generating SA and outputting to infile.sa";
-        std::cerr << "[arg1] = all       for generating SA for all suffixes and outputing to infile.sa.i, for all 'i' suffixes";
-
-        std::exit(EXIT_FAILURE);
-    }
-
-    // Read the text.
-    if (strcmp(argv[1],"-single") == 0) {
-        SingleGenerate(argv[2]);
-    }
-
-    else if (strcmp(argv[1], "-all") == 0) {
-        SuffixesGenerate(argv[2]);
-    }
-    else {
-        std::cerr << "arg1 not understood";
-    }
-
-
-    return EXIT_SUCCESS;
-}
 

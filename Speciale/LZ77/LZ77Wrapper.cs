@@ -1,6 +1,7 @@
 ﻿using Speciale.Common;
 using Speciale.SuffixArray;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -54,26 +55,6 @@ namespace Speciale.LZ77
             return phrases;
         }
 
-        public static Phrase[] PhraseFileToObject(string phrasefile)
-        {
-            return PhraseFileToObject(File.ReadAllLines(phrasefile));
-        }
-
-        public static Phrase[] PhraseFileToObject(string[] phrases)
-        {
-            Phrase[] phrasesParsed = new Phrase[phrases.Length];
-
-            for(int i = 0; i < phrases.Length; i++)
-            {
-                var split = phrases[i].Split(" ");
-                int loadpos = int.Parse(split[0]);
-                int loadlen = int.Parse(split[1]);
-                phrasesParsed[i] = new Phrase() { len = loadlen, pos = loadpos };
-
-            }
-
-            return phrasesParsed;
-        }
 
 
         public static string DecompressLZ77Phrases(Phrase[] phrases)
@@ -152,25 +133,17 @@ namespace Speciale.LZ77
             [DllImport("LZ77.dll", EntryPoint = "Free", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
             static extern void Free(int[] phrasePositions, int[] phraseLengths);
 
-
-
-            string S;
-            if (isFile)
-                S = File.ReadAllText(data);
-            else
-                S = data;
-
+            string S = isFile ? File.ReadAllText(data) : data;
 
             int[] phraseLengths = new int[S.Length];
             int[] phrasePositions = new int[S.Length];
 
-
             int phraseCount;
 
             if (algo == LZ77Algorithm.kkp3)
-                phraseCount = LZ77DLL(S, SA, S.Length, phrasePositions, phraseLengths, 1);
+                phraseCount = LZ77DLL(S, SA, S.Length,  phrasePositions,  phraseLengths, 1);
             else if (algo == LZ77Algorithm.kkp2)
-                phraseCount = LZ77DLL(S, SA, S.Length, phrasePositions, phraseLengths, 2);
+                phraseCount = LZ77DLL(S, SA, S.Length,  phrasePositions,  phraseLengths, 2);
             else
                 throw new Exception("Algorithm not supported for LZ77 generation DLL");
 
@@ -178,53 +151,14 @@ namespace Speciale.LZ77
 
             var res = Phrase.ArraysToObject(phrasePositions, phraseLengths, phraseCount);
 
-
+            // Force GC
+            phraseLengths = new int[1];
+            phrasePositions = new int[1];
 
             return res;
 
 
         }
-
-
-
-        #region unused .exe entry points
-
-
-        public static void GenerateLZ77Phrases(string infile, string phrasesfile, LZ77Algorithm algo)
-        {
-            DateTime t1 = DateTime.Now;
-            ProcessStartInfo psi = Statics.GetStartInfo("LZ77.exe", infile + " " + algo.ToString() + " " + phrasesfile + " single");
-            Double time;
-            using (Process process = Process.Start(psi))
-            {
-                process.WaitForExit();
-                time = (process.ExitTime - process.StartTime).TotalSeconds;
-
-                if (process.ExitCode != 0)
-                    throw new Exception("LZ77.exe failed.. Exit code: " + process.ExitCode);
-            }
-            var otime = (DateTime.Now - t1);
-            var q = 0;
-
-        }
-
-
-
-        public static void GenerateSuffixLZ77Phrases(string infile, string phrasesfile, LZ77Algorithm algo)
-        {
-            ProcessStartInfo psi = Statics.GetStartInfo("LZ77.exe", infile + " " + algo.ToString() + " " + phrasesfile + " all");
-            using (Process process = Process.Start(psi))
-            {
-                process.WaitForExit();
-
-                if (process.ExitCode != 0)
-                    throw new Exception("LZ77.exe failed.. Exit code: " + process.ExitCode);
-            }
-
-        }
-
-        #endregion
-
 
     }
 }

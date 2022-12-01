@@ -26,10 +26,11 @@ namespace Speciale.Common
 
 
 
-        public LCPArray(int[] SA, string S)
+        public LCPArray(int[] SA, string S, int[] invSA)
         {
             this.SA = SA;
             this.S = S;
+            this.inverseSA = invSA;
             Construct();
         }
 
@@ -41,7 +42,6 @@ namespace Speciale.Common
             lcpArr = new int[S.Length];
 
 
-            inverseSA = Statics.InverseArray(SA);
             int l = 0;
             for (int i = 0; i < inverseSA.Length; i++)
             {
@@ -92,8 +92,13 @@ namespace Speciale.Common
         private LCPFast lcpFast;
         private string S;
 
+        public int[] GetLCPArray()
+        {
+            if (lcpFast == null) return null;
+            return lcpFast.lcpArr.lcpArr;
+        }
 
-        public LCP(string S, int[] SA,LCPType processType)
+        public LCP(string S, int[] SA, int[] invSA, LCPType processType)
         {
             this.S = S;
             DateTime t1 = DateTime.Now;
@@ -101,7 +106,7 @@ namespace Speciale.Common
                 lcpNaive = new LCPNaive(S);
 
             if (processType == LCPType.fast)
-                lcpFast = new LCPFast(S, SA);
+                lcpFast = new LCPFast(S, SA, invSA);
 
 
             this.processType = processType;
@@ -182,13 +187,16 @@ namespace Speciale.Common
     public class LCPFast
     {
         private FastRMQ RMQLCPArr;
-        private LCPArray lcpArr;
+        public LCPArray lcpArr;
 
-        public LCPFast(string S, int[] SA)
+        public LCPFast(string S, int[] SA, int[] invSA)
         {
-            lcpArr = new LCPArray(SA, S);
+            lcpArr = new LCPArray(SA, S, invSA);
             RMQLCPArr = new FastRMQ(lcpArr.lcpArr);
         }
+
+
+
 
         // suffixIndexed = true: Transform Suffix index to SA index before use.
         public int GetPrefixLength(int i, int j, bool suffixIndexed = true)

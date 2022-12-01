@@ -24,13 +24,13 @@ namespace Speciale.CSC
         int[] SALazy;
         int[] SALazyInv;
 
-        public CSC_v1(string data, int[] SA, LCP lcpDS = null)
+        public CSC_v1(string data, int[] SA, int[] invSA, LCP lcpDS = null)
         {
             this.data = data;
 
             SALazy = SA;
-            SALazyInv = Statics.InverseArray(SALazy);
-            this.lcpDS = lcpDS == null ? new LCP(data, SALazy, LCPType.fast) : lcpDS;
+            SALazyInv = invSA;
+            this.lcpDS = lcpDS == null ? new LCP(data, SALazy, invSA, LCPType.fast) : lcpDS;
             ComputeRepeatLengths();
         }
 

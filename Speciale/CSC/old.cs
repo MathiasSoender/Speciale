@@ -28,7 +28,7 @@ namespace Speciale.CSC
         int[] SALazy;
         int[] SALazyInv;
 
-        public ConsecutiveSuffixCompressorOld(string data)
+        public ConsecutiveSuffixCompressorOld(string data, int[] invSA)
         {
             this.data = data;
             SA = SAWrapper.GenerateSuffixArrayDLL(data, false);
@@ -36,38 +36,15 @@ namespace Speciale.CSC
 
             SALazy = new int[SA.Length];
             Array.Copy(SA, SALazy, SA.Length);
-            SALazyInv = Statics.InverseArray(SALazy);
+            SALazyInv = invSA;
 
-            lcpDS = new LCP(data, SA, LCPType.fast);
+            lcpDS = new LCP(data, SA, invSA, LCPType.fast);
             ComputePredecessorAndSucessor();
             ComputeRepeatLengths();
             CompressAllSuffixes();
         }
 
-        public void Test(Phrase[][] phrases)
-        {
-            for (int i = 0; i < data.Length; i++)
-            {
-                string suffix = data.Substring(i);
-                var curSA = SAWrapper.GenerateSuffixArrayDLL(suffix, false);
-                var correctLZ = LZ77Wrapper.GenerateLZ77PhrasesDLL(suffix, false, curSA, LZ77Wrapper.LZ77Algorithm.kkp3);
-
-
-                if (correctLZ.Length != phrases[i].Length)
-                {
-                    throw new Exception("Error");
-                }
-
-                for (int j = 0; j < correctLZ.Length; j++)
-                {
-                    if (!correctLZ[j].Equals(phrases[i][j]))
-                    {
-                        throw new Exception("Error");
-                    }
-                }
-
-            }
-        }
+        
 
         public Phrase[][] CompressAllSuffixes()
         {
@@ -86,7 +63,6 @@ namespace Speciale.CSC
             }
             Console.Out.WriteLine("Time taken: " + (DateTime.Now - t1).TotalSeconds);
 
-            Test(res);
             return res;
 
         }

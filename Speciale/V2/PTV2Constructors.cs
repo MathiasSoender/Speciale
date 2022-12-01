@@ -9,6 +9,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -19,6 +20,7 @@ namespace Speciale.V2
 
     public static class PTV2Constructors
     {
+
         // suffixPhrases format 2 cases: UNICODE 0 or P_i L_i
         // Unicode is a single Char
         // P_i is position of where to copy
@@ -43,11 +45,11 @@ namespace Speciale.V2
 
         }
 
-        private static void AddSuffixPhrase(Phrase[] curSuffixPhrases, PTV2Node curNode, int curSuffixIndex, int longestMatch, out PTV2Node leafNode, ref int UUID)
+        private static void AddSuffixPhrase(Phrase[] curSuffixPhrases, PTV2Node curNode, int curSuffixIndex, ref int UUID)
         {
             PTV2Node child;
+            PTV2Node leafNode;
             int curPhraseIndex = 0;
-            leafNode = null;
 
             while (curPhraseIndex < curSuffixPhrases.Length)
             {
@@ -107,47 +109,110 @@ namespace Speciale.V2
         }
 
 
+        
 
 
-        public static PhraseTrieV2 FastConstruction2(string S, int[] SA, LCP lcpDS)
+        public static PhraseTrieV2 Construct(string S, int[] SA, int[] invSA, LCP lcpDS, TestType constructionType, MemoryCounter MC)
         {
-            int UUID = 0;
             PTV2Node root = new PTV2Node();
-            root.UUID = UUID++;
+            PhraseTrieV2 PTV2 = new PhraseTrieV2() { lcpDS = lcpDS, S = S, SA = SA, root = root, invSA = invSA};
 
-            PhraseTrieV2 PTV2 = new PhraseTrieV2() { lcpDS = lcpDS, S = S, SA = SA, root = root };
+            if (constructionType == TestType.ConstructPTV2CSC)
+                PTV2 = FastConstructionByCSC(PTV2, MC);
+            else if (constructionType == TestType.ConstructPTV2KKP3)
+                PTV2 = FastConstructionByKKP3(PTV2, MC);
+            else
+                throw new Exception("Construction type not allowed");
 
-            var csc = new CSC_v3(PTV2.S, PTV2.SA, PTV2.lcpDS);
-            int[] invSA = Statics.InverseArray(SA);
-
-            PTV2Node newLeaf = null;
-            Phrase[] curSuffixPhrases = null;
-
-
-            for (int curSuffixIndex = 0; curSuffixIndex < PTV2.S.Length; curSuffixIndex++)
-            {
-
-                int longestMatch;
-                if (invSA[curSuffixIndex] == 0)
-                    longestMatch = PTV2.lcpDS.GetPrefixLength(curSuffixIndex, SA[invSA[curSuffixIndex] + 1]);
-                else if (invSA[curSuffixIndex] == PTV2.S.Length - 1)
-                    longestMatch = PTV2.lcpDS.GetPrefixLength(SA[invSA[curSuffixIndex] - 1], curSuffixIndex);
-                else
-                    longestMatch = Math.Max(PTV2.lcpDS.GetPrefixLength(curSuffixIndex, SA[invSA[curSuffixIndex] + 1]), PTV2.lcpDS.GetPrefixLength(SA[invSA[curSuffixIndex] - 1], curSuffixIndex));
-
-                curSuffixPhrases = csc.CompressOneSuffix(curSuffixIndex, curSuffixPhrases, longestMatch);
-                AddSuffixPhrase(curSuffixPhrases, root, curSuffixIndex, longestMatch, out newLeaf, ref UUID);
-
-            }
+            MC.MeasureMemory();
             SetLeafPointers(PTV2);
             SetLengths(PTV2);
             PTV2.FinalizeConstruction();
+            MC.MeasureMemory();
+            return PTV2;
+        }
+
+        private static PhraseTrieV2 FastConstructionByCSC(PhraseTrieV2 PTV2, MemoryCounter MC)
+        {
+            int UUID = 1;
+
+            var csc = new CSC_v3(PTV2.S, PTV2.SA, PTV2.invSA, PTV2.lcpDS);
+
+            Phrase[] curSuffixPhrases = null;
+
+            DateTime t1 = DateTime.Now;
+
+            for (int curSuffixIndex = 0; curSuffixIndex < PTV2.S.Length; curSuffixIndex++)
+            {
+                Statics.Guard(curSuffixIndex, t1, MC);
+
+
+
+                int longestMatch = FindLongestMatch(curSuffixIndex, PTV2);
+                curSuffixPhrases = csc.CompressOneSuffix(curSuffixIndex, curSuffixPhrases, longestMatch);
+                AddSuffixPhrase(curSuffixPhrases, (PTV2Node)PTV2.root, curSuffixIndex, ref UUID);
+
+
+            }
 
             return PTV2;
         }
 
+        private static PhraseTrieV2 FastConstructionByKKP3(PhraseTrieV2 PTV2, MemoryCounter MC)
+        {
+            int UUID = 1;
+            DateTime t1 = DateTime.Now;
 
-        private static void SetLeafPointers(PhraseTrieV2 PTV2)
+            for (int curSuffixIndex = 0; curSuffixIndex < PTV2.S.Length; curSuffixIndex++)
+            {
+                Statics.Guard(curSuffixIndex, t1, MC);
+
+                int longestMatch = FindLongestMatch(curSuffixIndex, PTV2) + 1;
+                string curS = PTV2.S.Substring(curSuffixIndex, longestMatch);
+                int[] curSA = SAWrapper.GenerateSuffixArrayDLL(curS, false);
+
+                var curSuffixPhrases = LZ77Wrapper.GenerateLZ77PhrasesDLL(curS, false, curSA, LZ77Wrapper.LZ77Algorithm.kkp3);
+                AddSuffixPhrase(curSuffixPhrases, (PTV2Node)PTV2.root, curSuffixIndex, ref UUID);
+
+            }
+            return PTV2;
+        }
+       
+
+        private static void PruneNode(PTV2Node node, string S)
+        {
+            if (!node.IsLeaf())
+            {
+                node.length = Phrase.FindDecompressedLength(node.phrases.ToArray());
+                node.phrases = null;
+                var parent = (PTV2Node)node.parent;
+                int parentLength = parent == null ? 0 : parent.totalLength;
+
+                node.totalLength = node.length + parentLength;
+            }
+            else
+            {
+                var parent = (PTV2Node)node.parent;
+                node.length = (S.Length - node.suffixIndex) - parent.totalLength;
+                node.phrases = null;
+            }
+        }
+
+        public static int FindLongestMatch(int curSuffixIndex, PhraseTrieV2 PTV2)
+        {
+            int longestMatch;
+            if (PTV2.invSA[curSuffixIndex] == 0)
+                longestMatch = PTV2.lcpDS.GetPrefixLength(curSuffixIndex, PTV2.SA[PTV2.invSA[curSuffixIndex] + 1]);
+            else if (PTV2.invSA[curSuffixIndex] == PTV2.S.Length - 1)
+                longestMatch = PTV2.lcpDS.GetPrefixLength(PTV2.SA[PTV2.invSA[curSuffixIndex] - 1], curSuffixIndex);
+            else
+                longestMatch = Math.Max(PTV2.lcpDS.GetPrefixLength(curSuffixIndex, PTV2.SA[PTV2.invSA[curSuffixIndex] + 1]), PTV2.lcpDS.GetPrefixLength(PTV2.SA[PTV2.invSA[curSuffixIndex] - 1], curSuffixIndex));
+
+            return longestMatch;
+        }
+
+
+        public static void SetLeafPointers(PhraseTrieV2 PTV2)
         {
             // Set leaf refs
             var queue = new Queue<PTV2Node>();
@@ -182,7 +247,9 @@ namespace Speciale.V2
         // updates length, and removes the remaining phrases
         private static void SetLengths(PhraseTrieV2 PTV2)
         {
+
             // Start by setting lengths and remove phrases
+
             Queue<PTV2Node> queue = new Queue<PTV2Node>();
             queue.Enqueue((PTV2Node)PTV2.root);
 
@@ -190,122 +257,19 @@ namespace Speciale.V2
             {
                 PTV2Node node = queue.Dequeue();
 
-                if (node.IsLeaf())
+                PruneNode(node, PTV2.S);
+
+                foreach (var c in node.childrenMap.Values)
                 {
-                    var parent = (PTV2Node)node.parent;
-                    node.length = (PTV2.S.Length - node.suffixIndex) - parent.totalLength;
-                    node.phrases = null;
+                    queue.Enqueue(c);
                 }
-                else
-                {
-                    node.length = Phrase.FindDecompressedLength(node.phrases.ToArray());
-                    node.phrases = null;
-                    var parent = (PTV2Node)node.parent;
-                    int parentLength = parent == null ? 0 : parent.totalLength;
-
-                    node.totalLength = node.length + parentLength;
-                    foreach (var c in node.childrenMap.Values)
-                    {
-                        queue.Enqueue(c);
-                    }
-                }
-            }
-
-            
-
-
-        }
-
-
-        private static void UpdateLeafPointers(PTV2Node newLeaf)
-        {
-            PTV2Node parent = (PTV2Node)newLeaf.parent;
-            parent.leafPointer = newLeaf;
-            
-            while (parent.parent != null)
-            {
-                parent = (PTV2Node)parent.parent;
-                parent.leafPointer = newLeaf;
-            }
-        }
-
-
-
-        private static void SanitizeFinal(PTV2Node startNode, bool skipDescendants = false)
-        {
-            Stack<PTV2Node> stack = new Stack<PTV2Node>();
-            stack.Push(startNode);
-            while(stack.Count() > 0)
-            {
-                var node = stack.Pop();
-
-                if (node.phrases != null)
-                {
-                    node.SanitizeNode();
-                }
-                else if (skipDescendants)
-                    continue;
-
-                foreach (var child in node.childrenMap.Values)
-                {
-                    stack.Push(child);
-                }
-            }
-           
-        }
-
-        private static void SanitizeNodes(PTV2Node newLeaf, PTV2Node prevLeaf, LCP lcpDS)
-        {
-            if (prevLeaf == null) return;
-
-            int lcpVal = lcpDS.GetPrefixLength(prevLeaf.suffixIndex, newLeaf.suffixIndex);
-
-            List<PTV2Node> prevVisitedNodes = new List<PTV2Node>() { prevLeaf};
-            List<PTV2Node> curVisitedNodes = new List<PTV2Node>() { newLeaf };
-
-            while (prevLeaf.parent != null)
-            {
-                prevVisitedNodes.Add((PTV2Node)prevLeaf.parent);
-                prevLeaf = (PTV2Node)prevLeaf.parent;
-            }
-            while (newLeaf.parent != null)
-            {
-                curVisitedNodes.Add((PTV2Node)newLeaf.parent);
-                newLeaf = (PTV2Node)newLeaf.parent;
-            }
-
-            prevVisitedNodes.Reverse();
-            curVisitedNodes.Reverse();
-
-            int i = 0;
-            int matchLength = 0;
-            while (i < prevVisitedNodes.Count())
-            {
-                if (prevVisitedNodes[i].UUID != curVisitedNodes[i].UUID)
-                    break;
-
-                matchLength += Phrase.FindDecompressedLength(prevVisitedNodes[i].phrases.ToArray()); // Can be optimized while building (save lengths)
-                i++;
+                
             }
 
 
-            int l = Math.Max(prevVisitedNodes[i].phrases[0].len, 1);
-
-            for (int j = i; j < prevVisitedNodes.Count(); j++)
-            {
-
-                if (lcpVal > matchLength && lcpVal >= (matchLength + l))
-                {
-                    matchLength += Phrase.FindDecompressedLength(prevVisitedNodes[j].phrases.ToArray());
-                }
-                else
-                {
-                    SanitizeFinal(prevVisitedNodes[j], true);
-                }
-            }
 
 
-        }
+    }
 
 
     }

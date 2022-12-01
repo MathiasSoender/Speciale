@@ -1,19 +1,23 @@
 ﻿using Speciale.SuffixTree;
+using Speciale.V2;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace Speciale.Common
 {
+
     public abstract class Trie
     {
         public Node root;
         public int[] SA;
         public string S;
+        public int[] invSA;
+        public LCP lcpDS;
 
-        public Dictionary<int, Node> suffixIndexToLeaf;
 
 
         public List<int> GenerateOutputOfSearch(Node node)
@@ -30,25 +34,22 @@ namespace Speciale.Common
             if (SA == null)
                 throw new Exception("Cannot finalize construction with null SA");
 
-            suffixIndexToLeaf = new Dictionary<int, Node>();
-            int[] inverseSA = Statics.InverseArray(SA);
-            SetPropertiesRecursive(root, inverseSA);
+            SetPropertiesRecursive(root);
         }
 
         // Something like 3*n for binary trees
         // Sets lexigraphical range
-        public Tuple<int, int> SetPropertiesRecursive(Node node, int[] inverseSA)
+        public Tuple<int, int> SetPropertiesRecursive(Node node)
         {
             if (node.IsLeaf())
             {
-                node.lexigraphicalJ = inverseSA[node.suffixIndex];
-                node.lexigraphicalI = inverseSA[node.suffixIndex];
-                suffixIndexToLeaf.Add(node.suffixIndex, node);
+                node.lexigraphicalJ = invSA[node.suffixIndex];
+                node.lexigraphicalI = invSA[node.suffixIndex];
 
                 return new Tuple<int, int>(node.lexigraphicalI, node.lexigraphicalI);
             }
 
-            List<Tuple<int, int>> lexigraphicalorders = node.children.Select(x => SetPropertiesRecursive(x, inverseSA)).ToList();
+            List<Tuple<int, int>> lexigraphicalorders = node.children.Select(x => SetPropertiesRecursive(x)).ToList();
 
             var min = lexigraphicalorders.MinBy(x => x.Item1).Item1;
             var max = lexigraphicalorders.MaxBy(x => x.Item2).Item2;
@@ -59,6 +60,27 @@ namespace Speciale.Common
 
         }
 
+
+        public void DFS(Action<Node> f)
+        {
+            Queue<Node> queue = new Queue<Node>();
+            queue.Enqueue(root);
+
+
+            while (queue.Count() > 0)
+            {
+
+                var node = queue.Dequeue();
+
+                f(node);
+
+                foreach (var c in node.children)
+                {
+                    queue.Enqueue(c);
+                }
+
+            }
+        }
         public List<Node> FindLeaves(Node node)
         {
             List<Node> leaves = new List<Node>();
@@ -81,6 +103,22 @@ namespace Speciale.Common
             }
             return leaves;
         }
+
+        public List<Node> FindRootToLeafPath(Node leafNode)
+        {
+            var path = new List<Node>() { leafNode };
+            Node node = leafNode;
+
+            while (node.parent != null)
+            {
+                path.Add(node.parent);
+                node = node.parent;
+            }
+            path.Reverse();
+            return path;
+        }
+
+
 
 
     }

@@ -10,4 +10,20 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Compile Remove="TestFiles\**" />
+    <EmbeddedResource Remove="TestFiles\**" />
+    <None Remove="TestFiles\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="7.0.0" />
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="copy $(SolutionDir)TestFiles\* $(SolutionDir)Speciale\bin\Release\net6.0" />
+	<Exec Command="copy $(SolutionDir)TestFiles\* $(SolutionDir)Speciale\bin\Debug\net6.0" />
+
+  </Target>
+
 </Project>

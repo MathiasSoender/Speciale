@@ -15,12 +15,6 @@ namespace Speciale.V1
     public static class PTV1Constructors
     {
 
-        public enum ConstructionType
-        {
-            fast,
-            naive
-        }
-
         private static void AddSuffixPhrase(Phrase[] curSuffixPhrases, PTV1Node curNode, int curSuffixIndex)
         {
             PTV1Node child;
@@ -74,36 +68,40 @@ namespace Speciale.V1
             }
         }
 
-        public static PhraseTrieV1 Construct(string S, int[] SA, LCP lcpDS, ConstructionType constructType)
+        public static PhraseTrieV1 Construct(string S, int[] SA, int[] invSA, LCP lcpDS, TestType constructType, MemoryCounter MC)
         {
             PTV1Node root = new PTV1Node();
-            if (lcpDS == null)
-            {
-                lcpDS = new LCP(S, SA, LCPType.fast);
-            }
 
-            PhraseTrieV1 PT = new PhraseTrieV1() { root = root, SA = SA, S = S, lcpDS = lcpDS };
+            PhraseTrieV1 PT = new PhraseTrieV1() { root = root, SA = SA, S = S, lcpDS = lcpDS, invSA = invSA };
 
-            if (constructType == ConstructionType.fast)
-                FastConstruction(PT);
+            if (constructType == TestType.ConstructPTV1CSC)
+                ConstructionByCSC(PT, MC);
+            else if (constructType == TestType.ConstructPTV1KKP3)
+                ConstructionByKKP3(PT, MC);
+            else
+                throw new Exception("Construction type not understood");
 
-            else if (constructType == ConstructionType.naive)
-                NaiveConstruction(PT);
-
+            MC.MeasureMemory();
             PT.FinalizeConstruction();
+            MC.MeasureMemory();
+
 
             return PT;
 
         }
 
 
-        private static void FastConstruction(PhraseTrieV1 PT)
+        private static void ConstructionByCSC(PhraseTrieV1 PT, MemoryCounter MC)
         {
-            var csc = new CSC_v3(PT.S, PT.SA, PT.lcpDS);
+            DateTime t1 = DateTime.Now;
+
+            var csc = new CSC_v3(PT.S, PT.SA, PT.invSA, PT.lcpDS);
             Phrase[] curSuffixPhrases = null;
 
             for (int curSuffixIndex = 0; curSuffixIndex < PT.S.Length; curSuffixIndex++)
             {
+                Statics.Guard(curSuffixIndex, t1, MC);
+
 
                 curSuffixPhrases = csc.CompressOneSuffix(curSuffixIndex, curSuffixPhrases);
 
@@ -116,12 +114,14 @@ namespace Speciale.V1
         }
 
 
-        // O(n^2) preprocessing time
-        private static void NaiveConstruction(PhraseTrieV1 PT)
+        private static void ConstructionByKKP3(PhraseTrieV1 PT, MemoryCounter MC)
         {
-
+            DateTime t1 = DateTime.Now;
             for (int curSuffixIndex = 0; curSuffixIndex < PT.S.Length; curSuffixIndex++)
             {
+                Statics.Guard(curSuffixIndex, t1, MC);
+
+
 
                 string curSub = PT.S.Substring(curSuffixIndex);
                 var SAsuffix = SAWrapper.GenerateSuffixArrayDLL(curSub, false);

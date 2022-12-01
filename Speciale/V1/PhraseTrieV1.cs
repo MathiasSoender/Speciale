@@ -16,7 +16,6 @@ namespace Speciale.V1
 {
     public class PhraseTrieV1 : Trie
     {
-        public LCP lcpDS;
 
 
         public static List<int> CheckLeafNeighbors(int iMax, int[] SA, LCP lcpDS, int patternLength)
@@ -144,6 +143,10 @@ namespace Speciale.V1
                 // Could not match in node
                 if (!curNode.childrenMap.TryGetValue(patternPhrases[curPhrase], out child))
                 {
+                    if (patternPhrases[curPhrase].len == 0)
+                    {
+                        return new List<int>();
+                    }
                     w = curNode;
                     kthphrase = curPhrase;
                     locusIsEdge = false;
@@ -180,17 +183,10 @@ namespace Speciale.V1
             }
 
             // Everything was matched, ie locus etc is not set
+            // Difference from paper, here we only return complete matches, and not longest prefix of P  (that is a substring of S) matches.
             if (kthphrase == -1 && w == null)
             {
                 return CheckLeafNeighbors(SA[curNode.lexigraphicalI], SA, lcpDS, Phrase.FindDecompressedLength(patternPhrases));
-            }
-
-
-            // Difference from paper, here we only return complete matches, and not longest prefix of P  (that is a substring of S) matches.
-            // If we fell off (and next phrase is a character, resulting in a char which has not yet been seen), simply return empty list
-            if (patternPhrases[kthphrase].len == 0)
-            {
-                return new List<int>();
             }
             else
             {

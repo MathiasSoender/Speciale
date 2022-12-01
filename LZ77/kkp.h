@@ -43,8 +43,7 @@
 //     If len = 0, then pos holds the next text symbol.
 // Returns:
 //   the number of phrases in the parsing of X.
-int kkp3(unsigned char* X, int*& SA, int n,
-    std::vector<std::pair<int, int> >* F);
+int kkp3(unsigned char* X, int*& SA, int n, int* phrasePositions, int* phraseLengths);
 int kkp2(unsigned char* X, int* SA, int n,
     std::vector<std::pair<int, int> >* F);
 

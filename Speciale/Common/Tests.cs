@@ -14,17 +14,10 @@ using Speciale.CSC;
 
 namespace Speciale.Common
 {
+    /*
     // Should probably use a stopwatch here..
     public static class Tests
     {
-        public static void GenerateData(string alphabet, int n, string outfile)
-        {
-            Random random = new Random();
-
-            var data = new string(Enumerable.Repeat(alphabet, n).Select(s => s[random.Next(s.Length)]).ToArray());
-
-            File.WriteAllText(outfile, data);
-        }
 
 
         private static void Wait()
@@ -41,10 +34,7 @@ namespace Speciale.Common
             var lcp = new LCP(data, SA, LCPType.fast);
 
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            //var csc_SAOrder = new CSC_SAOrder(data, SA, lcp);
-            //var res_SAOrder = csc_SAOrder.CompressAllSuffixes(safeResult);
             watch.Stop();
-            Console.Out.WriteLine("Time taken for SA Order: " + (double)watch.ElapsedMilliseconds / 1000);
 
 
             SA = SAWrapper.GenerateSuffixArrayDLL(data, false);
@@ -176,7 +166,6 @@ namespace Speciale.Common
             // JIT
             var PTV1res = SearchPTV1Naive(PTV1, patternPhrases);
             SearchPTV1Naive(PTV1, patternPhrases);
-            */
             Wait();
 
             var PTV1fast = BuildPTV1Fast(S, SAText, lcpDS);
@@ -294,7 +283,7 @@ namespace Speciale.Common
         public static PhraseTrieV2 BuildPTV2Fast(string S, int[] SA, LCP lcpDS)
         {
             DateTime t1 = DateTime.Now;
-            var PTV2 = PTV2Constructors.FastConstruction2(S, SA, lcpDS);
+            var PTV2 = PTV2Constructors.FastConstructionByCSC(S, SA, lcpDS);
             Console.Out.WriteLine("Preprocess: PT_V2 [FAST]. Time taken: " + (DateTime.Now - t1).TotalSeconds);
             return PTV2;
         }
@@ -451,4 +440,5 @@ namespace Speciale.Common
 
 
     }
+*/
 }

@@ -10,32 +10,118 @@ namespace Speciale.SuffixTree
     public static class STConstructors
     {
 
-
-        // |S| = n, O(n^2) preprocessing time
-        public static SuffixTree NaiveConstruction(string S, int[] SA)
+        public static SuffixTree Construct(string S, int[] SA, int[] invSA, TestType constructionType, MemoryCounter MC)
         {
             STNode root = new STNode();
-            SuffixTree ST = new SuffixTree();
-            ST.root = root;
-            ST.S = S;
-            ST.SA = SA;
+            SuffixTree ST = new SuffixTree() { root = root, S = S, SA = SA, invSA = invSA };
+
+            if (constructionType == TestType.ConstructSTnaive)
+                NaiveConstruction(ST, MC);
+            else if (constructionType == TestType.ConstructSTfast)
+                FastConstruction(ST, MC);
+            else
+                throw new Exception("Construction type not understood");
+
+            if (MC != null) MC.MeasureMemory();
+            ST.FinalizeConstruction();
+            if (MC != null) MC.MeasureMemory();
+            return ST;
+
+        }
+
+        // O(n)
+        private static void FastConstruction(SuffixTree ST, MemoryCounter MC)
+        {
+            DateTime t1 = DateTime.Now;
+            LCPArray lcp = new LCPArray(ST.SA, ST.S, ST.invSA);
+            var lcpArray = lcp.lcpArr;
+
+            var root = (STNode)ST.root;
+            root.labelDepth = 0;
 
 
-            for (int i = 0; i < S.Length; i++)
+            var p = new STNode(ST.SA[0], ST.S.Length, ST.SA[0]);
+            p.labelDepth = p.indexJ - p.indexI;
+            root.AddChild(ST.IndexOfS(ST.SA[0]), p);
+
+
+            for (int i = 1; i < ST.S.Length; i++)
             {
+                Statics.Guard(i, t1, MC);
+
+
+
+                var l = lcpArray[i];
+                STNode prevP = null;
+                while(p.labelDepth > l)
+                {
+                    prevP = p;
+                    p = (STNode)p.parent;
+                }
+                if (p.labelDepth == l)
+                {
+                    var q = new STNode(ST.SA[i] + l, ST.S.Length, ST.SA[i]);
+                    q.labelDepth = ST.S.Length - ST.SA[i];
+                    p.AddChild(ST.IndexOfS(ST.SA[i] + l), q);
+                    p = q;
+                }
+                else
+                {
+                    int prevPdepth = prevP.labelDepth;
+                    // Make Split node
+                    var q = new STNode(ST.SA[i - 1] + p.labelDepth, ST.SA[i - 1] + l);
+                    q.labelDepth = l;
+
+                    // Unlink edge
+                    prevP.parent = null;
+                    p.childrenMap.Remove(ST.IndexOfS(ST.SA[i] + p.labelDepth));
+
+                    // Update prevP
+                    prevP.indexI = ST.SA[i - 1] + l;
+                    prevP.indexJ = ST.SA[i - 1] + prevPdepth;
+
+                    // Make new leaf
+                    var r = new STNode(ST.SA[i] + l, ST.S.Length, ST.SA[i]);
+                    r.labelDepth = ST.S.Length - ST.SA[i];
+
+                    // Link split node
+                    p.AddChild(ST.IndexOfS(q.indexI), q);
+                    q.AddChild(ST.IndexOfS(r.indexI), r);
+                    q.AddChild(ST.IndexOfS(prevP.indexI), prevP);
+
+                    p = r;
+
+                }
+
+
+            }
+
+
+        }
+
+
+        // |S| = n, O(n^2) preprocessing time
+        private static void NaiveConstruction(SuffixTree ST, MemoryCounter MC)
+        {
+            DateTime t1 = DateTime.Now;
+
+            for (int i = 0; i < ST.S.Length; i++)
+            {
+                Statics.Guard(i, t1, MC);
+
                 // Variables
                 STNode child;
-                STNode curNode = root;
+                STNode curNode = (STNode)ST.root;
                 int curIndex = i;
-                string curSuffix = ST.IndexOfS(i, S.Length);
+                string curSuffix = ST.IndexOfS(i, ST.S.Length);
 
                 // Match
-                while (curIndex < S.Length)
+                while (curIndex < ST.S.Length)
                 {
                     // No match!
                     if (!curNode.childrenMap.TryGetValue(ST.IndexOfS(curIndex), out child))
                     {
-                        STNode leafNode = new STNode(curIndex, S.Length, i);
+                        STNode leafNode = new STNode(curIndex, ST.S.Length, i);
                         curNode.childrenMap.Add(ST.IndexOfS(curIndex), leafNode);
                         break;
                     }
@@ -66,7 +152,7 @@ namespace Speciale.SuffixTree
                             child.indexI = splitNode.indexJ;
                             splitNode.childrenMap.Add(ST.IndexOfS(child.indexI), child);
 
-                            STNode leafNode = new STNode(matchedLength + curIndex, S.Length, i);
+                            STNode leafNode = new STNode(matchedLength + curIndex, ST.S.Length, i);
                             splitNode.childrenMap.Add(ST.IndexOfS(leafNode.indexI), leafNode);
 
                             break;
@@ -85,8 +171,6 @@ namespace Speciale.SuffixTree
                 
 
             }
-            ST.FinalizeConstruction();
-            return ST;
         }
 
 
