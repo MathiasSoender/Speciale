@@ -196,6 +196,7 @@ namespace Speciale.V1
                 int patternLength = Phrase.FindDecompressedLength(patternPhrases);
 
                 int r_k = p_k - patternPhrases[kthphrase].pos;
+                // p_k - (p_k - pos) = pos
 
                 if (locusIsEdge)
                 {

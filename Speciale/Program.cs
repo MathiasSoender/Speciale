@@ -14,29 +14,45 @@ namespace Speciale
 {
     public class Program
     {
-        public static void RunProgram(string[] args)
+        public static int RunProgram(string[] args)
         {
             string inputfile = args[0];
             string enumtype = args[1];
-            TestType type = TestingSuite.StringToTestType(enumtype);
+            int partition = args[2] == "_" ? 0 : int.Parse(args[2]);
+            string method = args[3];
 
-            TestingSuite.PreprocessingTest(inputfile, type);
+            TestType type = enumtype == "_" ? TestType.None :  TestingSuite.StringToTestType(enumtype);
+
+            switch (method)
+            {
+                case "preprocess":
+                    return TestingSuite.PreprocessingTest(inputfile, type, partition);
+                case "lcpsum":
+                    return TestingSuite.LCPTest(inputfile, partition);
+                case "search":
+                    return TestingSuite.SearchTest(inputfile, type, partition);
+                default:
+                    return -1;
+            }
+
         }
 
-        static void Main(string[] args)
+        static int Main(string[] args)
         {
+            // Preprocess test:
+            // file testype partition preprocess
 
-            Tester T = new Tester("test.txt");
+            // LCP sum test:
+            // file _ partition lcpsum
+            
+            // Search test:
+            // file testype S_length search
 
-            var PTnew = (PhraseTrieV2)T.BuildTrie(TestType.ConstructPTV2Lexico);
-            var PTold = (PhraseTrieV2)T.BuildTrie(TestType.ConstructPTV2CSC);
 
-            PTnew.Equals(PTold);
-            // TestingSuite.PreprocessingTest("a", TestType.ConstructPTV2CSC);
 
 
             // Running from IDE
-            RunProgram(args);
+            return RunProgram(args);
 
 
             //List<string> testFiles = new List<string> { "C:\\Users\\Mathi\\Desktop\\Speciale\\Speciale\\bin\\Debug\\t.txt" };
@@ -54,7 +70,6 @@ namespace Speciale
 
             suffixFast.Equals(suffixNaive);
             */
-            return;
 
 
 

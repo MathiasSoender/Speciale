@@ -98,6 +98,7 @@ namespace Speciale.Common
             return lcpFast.lcpArr.lcpArr;
         }
 
+
         public LCP(string S, int[] SA, int[] invSA, LCPType processType)
         {
             this.S = S;

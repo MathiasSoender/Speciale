@@ -130,18 +130,21 @@ namespace Speciale.LZ77
             [DllImport("LZ77.dll", EntryPoint = "LZ77DLL", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
             static extern int LZ77DLL([MarshalAs(UnmanagedType.LPStr)] string data, int[] SA, int length, int[] phrasePositions, int[] phraseLengths, int algorithm);
 
-            [DllImport("LZ77.dll", EntryPoint = "Free", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
-            static extern void Free(int[] phrasePositions, int[] phraseLengths);
 
             string S = isFile ? File.ReadAllText(data) : data;
 
-            int[] phraseLengths = new int[S.Length];
-            int[] phrasePositions = new int[S.Length];
+            int[] phraseLengths = new int[S.Length + 20];
+            int[] phrasePositions = new int[S.Length + 20];
 
             int phraseCount;
+            int[] SA2 = new int[SA.Length + 2]; // KKP3 requires two more entries after end of SA.
+            SA.CopyTo(SA2, 0);
+
+
+
 
             if (algo == LZ77Algorithm.kkp3)
-                phraseCount = LZ77DLL(S, SA, S.Length,  phrasePositions,  phraseLengths, 1);
+                phraseCount = LZ77DLL(S, SA2, S.Length,  phrasePositions,  phraseLengths, 1);
             else if (algo == LZ77Algorithm.kkp2)
                 phraseCount = LZ77DLL(S, SA, S.Length,  phrasePositions,  phraseLengths, 2);
             else
@@ -152,9 +155,8 @@ namespace Speciale.LZ77
             var res = Phrase.ArraysToObject(phrasePositions, phraseLengths, phraseCount);
 
             // Force GC
-            phraseLengths = new int[1];
-            phrasePositions = new int[1];
-
+            phraseLengths = null;
+            phrasePositions = null;
             return res;
 
 

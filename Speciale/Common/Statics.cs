@@ -39,7 +39,11 @@ namespace Speciale.Common
     {
         public static void Guard(int compRounds, DateTime startTime, MemoryCounter MC)
         {
-            if (compRounds % 25000 == 0)
+            if (MC == null)
+                return;
+
+
+            if (compRounds % 5000 == 0)
             {
                 MC.MeasureMemory();
                 if (MC.GetMaxMemory() / (1024.0 * 1024.0 * 1024.0) > Tester.MAX_GB)

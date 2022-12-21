@@ -18,60 +18,80 @@ namespace Speciale.Common
     {
         ConstructPTV1CSC,
         ConstructPTV1KKP3,
+
         ConstructPTV2KKP3,
         ConstructPTV2CSC,
+        ConstructPTV2Lexico,
+
         ConstructSTnaive,
         ConstructSTfast,
+
         SearchST,
         SearchPTV1,
         SearchPTV2,
-        CompressionTest,
-        ConstructPTV2Lexico
 
+        CompressionTest,
+
+        None
     }
     public class TestingSuite
     {
-        public static string timeOutputFile = "result_time";
-        public static string memoryOutputFile = "result_memory";
+        public static string timeOutputFile = "result_preprocess_time";
+        public static string memoryOutputFile = "result_preprocess_memory";
+        public static string searchTimeOutputFile = "result_search_time";
 
 
+        private static void EnsureFolderStructure()
+        {
+            if (!Directory.Exists("results"))
+            {
+                Directory.CreateDirectory("results");
+            }
+            if (!Directory.Exists("results_lcp"))
+            {
+                Directory.CreateDirectory("results_lcp");
+            }
+        }
 
         public static string TestTypeToString(TestType type)
         {
-            string output = "Construct_";
             switch (type)
             {
+                case TestType.SearchPTV1:
+                    return "Search_PTV1";
+                case TestType.SearchPTV2:
+                    return "SearchPTV2";
+                case TestType.SearchST:
+                    return "SearchST";
                 case TestType.ConstructPTV1CSC:
-                    output += "PTV1_CSC";
-                    break;
+                    return "Construct_PTV1_CSC";
                 case TestType.ConstructPTV1KKP3:
-                    output += "PTV1_Naive";
-                    break;
+                    return "Construct_PTV1_KKP3";
                 case TestType.ConstructPTV2KKP3:
-                    output += "PTV2_KKP3";
-                    break;
+                    return "Construct_PTV2_KKP3";
                 case TestType.ConstructPTV2CSC:
-                    output += "PTV2_CSC";
-                    break;
+                    return "Construct_PTV2_CSC";
                 case TestType.ConstructSTnaive:
-                    output += "ST_naive";
-                    break;
+                    return "Construct_ST_naive";
                 case TestType.ConstructSTfast:
-                    output += "ST_fast";
-                    break;
+                    return "Construct_ST_fast";
                 case TestType.ConstructPTV2Lexico:
-                    output += "PTV2_Lexico";
-                    break;
+                    return "Construct_PTV2_Lexico";
                 default:
                     throw new Exception("Type not understood");
             }
-            return output;
         }
 
         public static TestType StringToTestType(string testTypeAsString)
         {
             switch (testTypeAsString)
             {
+                case "SearchST":
+                    return TestType.SearchST;
+                case "SearchPTV1":
+                    return TestType.SearchPTV1;
+                case "SearchPTV2":
+                    return TestType.SearchPTV2;
                 case "ConstructPTV1CSC":
                     return TestType.ConstructPTV1CSC;
                 case "ConstructPTV1KKP3":
@@ -91,67 +111,184 @@ namespace Speciale.Common
             }
         }
 
+        private static void WriteTempFile(string S_file, int partition)
+        {
+            FileStream filestream;
+            StreamReader reader;
+            string partitionS;
+            char[] buffer;
+            if (S_file == "repeat")
+            {
+                buffer = new char[partition / 2];
+                filestream = File.OpenRead("proteins");
+                reader = new StreamReader(filestream);
+                reader.Read(buffer, 0, partition / 2);
+                partitionS = new string(buffer) + new string(buffer);
+            }
+            else
+            {
+                buffer = new char[partition];
+                filestream = File.OpenRead(S_file);
+                reader = new StreamReader(filestream);
+                reader.Read(buffer, 0, partition);
+                partitionS = new string(buffer);
+            }
+
+            File.WriteAllText(S_file + ".tmp", partitionS);
+            reader.Dispose();
+            filestream.Dispose();
+
+        }
 
         
-
-
-
-        public static void PreprocessingTest(string S_file, TestType type)
+        public static int SearchTest(string S_file, TestType type, int S_length)
         {
-            if (!Directory.Exists("results"))
+            var patternLengths = new List<int>() { 50, 100, 200, 400, 1000, 2000 };
+
+            int reps = 500;
+            EnsureFolderStructure();
+
+            File.AppendAllText("results\\" + searchTimeOutputFile + "_" + TestTypeToString(type), "Filename: " + (S_file) + "\n");
+            File.AppendAllText("results\\" + searchTimeOutputFile + "_" + TestTypeToString(type), "S length: " + (S_length) + "\n");
+
+
+            WriteTempFile(S_file, S_length);
+            var tester = type == TestType.SearchST ? new Tester(S_file + ".tmp", false) : new Tester(S_file + ".tmp", true);
+            Trie trie;
+
+            switch (type)
             {
-                Directory.CreateDirectory("results");
+                case TestType.SearchST:
+                    trie = STConstructors.Construct(tester.S, tester.SA_S, tester.invSA, TestType.ConstructSTfast, null);
+                    break;
+                case TestType.SearchPTV1:
+                    trie = PTV1Constructors.Construct(tester.S, tester.SA_S, tester.invSA, tester.lcpDS, TestType.ConstructPTV1CSC, null);
+                    break;
+                case TestType.SearchPTV2:
+                    trie = PTV2Constructors.Construct(tester.S, tester.SA_S, tester.invSA, tester.lcpDS, TestType.ConstructPTV2CSC, null);
+                    break;
+                default:
+                    throw new Exception("Bad type");
             }
-            if (!Directory.Exists("results_lcp"))
+            bool first = true;
+
+            Console.Out.WriteLine("Doing: " + S_file + " S length: " + S_file + " search type: " + TestTypeToString(type));
+            string S = File.ReadAllText(S_file);
+            foreach (var p_length in patternLengths)
             {
-                Directory.CreateDirectory("results_lcp");
+                File.AppendAllText("results\\" + searchTimeOutputFile + "_" + TestTypeToString(type), "pattern length: " + (p_length) + "\n");
+
+                double timeTakenTotalSeconds = 0;
+
+                for (int i = 0; i < reps; i++)
+                {
+                    string pattern = S.Substring(i, p_length);
+
+                    tester.UpdateP(pattern, false);
+
+
+                    double curTime;
+                    while (first)
+                    {
+                        switch (type)
+                        {
+                            case TestType.SearchST:
+                                tester.SearchST((SuffixTree.SuffixTree)trie, out curTime);
+                                break;
+                            case TestType.SearchPTV1:
+                                tester.SearchPTV1((PhraseTrieV1)trie, out curTime);
+                                break;
+                            case TestType.SearchPTV2:
+                                tester.SearchPTV2((PhraseTrieV2)trie, out curTime);
+                                break;
+                            default:
+                                throw new Exception("Bad type");
+                        }
+                        first = false;
+                    }
+                    switch (type)
+                    {
+                        case TestType.SearchST:
+                            tester.SearchST((SuffixTree.SuffixTree)trie, out curTime);
+                            break;
+                        case TestType.SearchPTV1:
+                            tester.SearchPTV1((PhraseTrieV1)trie, out curTime);
+                            break;
+                        case TestType.SearchPTV2:
+                            tester.SearchPTV2((PhraseTrieV2)trie, out curTime);
+                            break;
+                        default:
+                            throw new Exception("Bad type");
+                    }
+
+                    timeTakenTotalSeconds += curTime;
+
+
+                }
+                File.AppendAllText("results\\" + searchTimeOutputFile + "_" + TestTypeToString(type), "time: " + (timeTakenTotalSeconds) + "\n");
+
             }
+
+
+
+            return 0;
+
+        }
+
+        // Finds LCP sum
+        public static int LCPTest(string S_file, int partition)
+        {
+            EnsureFolderStructure();
+            File.AppendAllText("results_lcp\\LCP_sum", "Filename: " + (S_file) + "\n");
+            File.AppendAllText("results_lcp\\LCP_sum", "partition: " + (partition) + "\n");
+
+
+            WriteTempFile(S_file, partition);
+
+            var tester = new Tester(S_file + ".tmp", false);
+            DateTime t1 = DateTime.Now;
+            var lcpArrSum = tester.LCPSum();
+            Console.Out.WriteLine("Time for partition: " + partition + " time: " + (DateTime.Now - t1).TotalSeconds);
+            File.AppendAllText("results_lcp\\LCP_sum", "sum: " + (lcpArrSum) + "\n");
+
+            return 0;
+        }
+
+
+
+
+        public static int PreprocessingTest(string S_file, TestType type, int partition)
+        {
+            EnsureFolderStructure();
+
             File.AppendAllText("results_lcp\\LCP_time", "Filename: " + (S_file) + "\n");
             File.AppendAllText("results\\" + timeOutputFile + "_" + TestTypeToString(type), "Filename: " + (S_file) + "\n");
             File.AppendAllText("results\\" + memoryOutputFile + "_" + TestTypeToString(type), "Filename: " + (S_file) + "\n");
 
-
-            int partition = 10000;
-
-            var filestream = File.OpenRead(S_file);
-            long length = filestream.Length;
-            filestream.Dispose();
             Trie trie;
 
 
-            while (partition < length)
+            Console.Out.WriteLine("Doing partition: " + partition);
+            File.AppendAllText("results\\" + timeOutputFile + "_" + TestTypeToString(type), "parition: " + partition + "\n");
+            File.AppendAllText("results\\" + memoryOutputFile + "_" + TestTypeToString(type), "parition: " + partition + "\n");
+
+            WriteTempFile(S_file, partition);
+
+
+            var tester = type == TestType.ConstructSTnaive || type == TestType.ConstructSTfast ? new Tester(S_file + ".tmp", false) : new Tester(S_file + ".tmp", true);
+            trie = tester.BuildTrie(type);
+
+
+            if (trie == null)
             {
-                File.AppendAllText("results\\" + timeOutputFile + "_" + TestTypeToString(type), "parition: " + partition + "\n");
-                File.AppendAllText("results\\" + memoryOutputFile + "_" + TestTypeToString(type), "parition: " + partition + "\n");
-
-                char[] buffer = new char[partition];
-                filestream = File.OpenRead(S_file);
-                var reader = new StreamReader(filestream);
-                reader.ReadBlock(buffer, 0, partition);
-                reader.Dispose();
-                string partitionS = new string(buffer);
-
-                File.WriteAllText(S_file + ".tmp", partitionS);
-
-
-                var tester = type == TestType.ConstructSTnaive || type == TestType.ConstructSTfast ? new Tester(S_file + ".tmp", false) : new Tester(S_file + ".tmp", true);
-                trie = tester.BuildTrie(type);
-
-
-                if (trie == null)
-                {
-                    Console.Out.WriteLine("Cannot process anymore, due to time constraints");
-                    break;
-                }
-
-                partition *= 2;
-                trie = null;
-                GC.Collect();
+                Console.Out.WriteLine("Cannot process anymore, due to constraints");
+                return -1;
             }
-            File.Delete(S_file + ".tmp");
-            filestream.Dispose();
 
-            GC.Collect();
+            File.Delete(S_file + ".tmp");
+
+
+            return 0;
         }
 
 
@@ -173,7 +310,7 @@ namespace Speciale.Common
         public string P;
         public LCP lcpDS;
         public Phrase[] LZ_P;
-        public static int TIME_OUT_SECONDS = 5 * 60;
+        public static int TIME_OUT_SECONDS = 8 * 60;
         public static int MAX_GB = 4;
 
 
@@ -199,9 +336,11 @@ namespace Speciale.Common
             File.AppendAllText("results_lcp\\LCP_time", (DateTime.Now - t1).TotalSeconds.ToString() + "\n");
         }
 
-        public void UpdateP(string P_file)
+        public void UpdateP(string P_file, bool isFile = true)
         {
-            P = File.ReadAllText(P_file);
+            if (isFile) P = File.ReadAllText(P_file);
+            else P = P_file;
+
             SA_P = SAWrapper.GenerateSuffixArrayDLL(P, false);
             LZ_P = LZ77Wrapper.GenerateLZ77PhrasesDLL(P, false, SA_P, LZ77Wrapper.LZ77Algorithm.kkp3);
             
@@ -285,10 +424,13 @@ namespace Speciale.Common
                     default:
                         throw new Exception("Type not understood");
                 }
-                File.AppendAllText("results\\" + TestingSuite.timeOutputFile + "_" + typeAsString, (DateTime.Now - t1).TotalSeconds + "\n");
-                File.AppendAllText("results\\" + TestingSuite.memoryOutputFile + "_" + typeAsString, (MC.GetMaxMemory() / (1024.0 * 1024.0)) + "\n");
-                Console.Out.WriteLine("Preprocess:  [" + typeAsString + "]. Time taken: " + (DateTime.Now - t1).TotalSeconds);
-                Console.Out.WriteLine("Max memory used: " + MC.GetMaxMemory() / (1024 * 1024) + "MB.");
+                if (res != null)
+                {
+                    File.AppendAllText("results\\" + TestingSuite.timeOutputFile + "_" + typeAsString, (DateTime.Now - t1).TotalSeconds + "\n");
+                    File.AppendAllText("results\\" + TestingSuite.memoryOutputFile + "_" + typeAsString, (MC.GetMaxMemory() / (1024.0 * 1024.0)) + "\n");
+                    Console.Out.WriteLine("Preprocess:  [" + typeAsString + "]. Time taken: " + (DateTime.Now - t1).TotalSeconds);
+                    Console.Out.WriteLine("Max memory used: " + MC.GetMaxMemory() / (1024 * 1024) + "MB.");
+                }
 
                 return res;
             }
@@ -302,14 +444,20 @@ namespace Speciale.Common
                 Console.Out.WriteLine("Preprocess:  [" + typeAsString + "] has exceeded memory.");
                 return null;
             }
+            catch (Exception E)
+            {
+                return null;
+            }
         }
 
 
-        public List<int> SearchPTV1(PhraseTrieV1 PTV1naive)
+        public List<int> SearchPTV1(PhraseTrieV1 PTV1naive, out double timetaken)
         {
             DateTime t1 = DateTime.Now;
             var res = PTV1naive.Search(LZ_P);
-            Console.Out.WriteLine("Search: PT_V1. Time taken: " + (DateTime.Now - t1).TotalSeconds);
+            timetaken = (DateTime.Now - t1).TotalSeconds;
+
+            Console.Out.WriteLine("Search: PT_V1. Time taken: " + timetaken);
 
             return res;
         }
@@ -319,11 +467,13 @@ namespace Speciale.Common
 
         #region PTV2
 
-        public List<int> SearchPTV2(PhraseTrieV2 PTV2)
+        public List<int> SearchPTV2(PhraseTrieV2 PTV2, out double timetaken)
         {
             DateTime t1 = DateTime.Now;
             var res = PTV2.Search(LZ_P);
-            Console.Out.WriteLine("Search: PT_V2. Time taken: " + (DateTime.Now - t1).TotalSeconds);
+            timetaken = (DateTime.Now - t1).TotalSeconds;
+
+            Console.Out.WriteLine("Search: PT_V2. Time taken: " + timetaken);
 
             return res;
         }
@@ -334,18 +484,36 @@ namespace Speciale.Common
 
         #region ST
         
-        public List<int> SearchST(SuffixTree.SuffixTree ST)
+        public List<int> SearchST(SuffixTree.SuffixTree ST, out double timetaken)
         {
             DateTime t1 = DateTime.Now;
             var pattern = Phrase.DecompressLZ77Phrases(LZ_P);
             var res = ST.Search(pattern);
-            Console.Out.WriteLine("Search: ST [Naive]. Time taken: " + (DateTime.Now - t1).TotalSeconds);
-
+            timetaken = (DateTime.Now - t1).TotalSeconds;
+            Console.Out.WriteLine("Search: ST [Naive]. Time taken: " + timetaken);
             return res;
         }
 
         #endregion
 
+
+        public long LCPSum()
+        {
+            try
+            {
+                LCPArray lcparr = new LCPArray(SA_S, S, invSA);
+                long s = 0;
+                foreach (var e in lcparr.lcpArr)
+                    s += e;
+                return s;
+
+            }
+            catch (Exception E)
+            {
+                return -1;
+            }
+
+        }
 
         public void TestConsecutiveSuffixCompressors(bool safeResult = true)
         {

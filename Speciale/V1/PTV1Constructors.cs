@@ -81,9 +81,9 @@ namespace Speciale.V1
             else
                 throw new Exception("Construction type not understood");
 
-            MC.MeasureMemory();
+            if (MC != null) MC.MeasureMemory();
             PT.FinalizeConstruction();
-            MC.MeasureMemory();
+            if (MC != null) MC.MeasureMemory();
 
 
             return PT;

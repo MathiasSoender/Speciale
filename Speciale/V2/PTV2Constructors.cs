@@ -124,11 +124,11 @@ namespace Speciale.V2
             else
                 throw new Exception("Construction type not allowed");
 
-            MC.MeasureMemory();
+            if (MC != null) MC.MeasureMemory();
             SetLeafPointers(PTV2);
             SetLengths(PTV2);
             PTV2.FinalizeConstruction();
-            MC.MeasureMemory();
+            if (MC != null) MC.MeasureMemory();
             return PTV2;
         }
 
