@@ -51,6 +51,10 @@ namespace Speciale.Common
             {
                 Directory.CreateDirectory("results_lcp");
             }
+            if (!Directory.Exists("results_search"))
+            {
+                Directory.CreateDirectory("results_search");
+            }
         }
 
         public static string TestTypeToString(TestType type)
@@ -60,7 +64,7 @@ namespace Speciale.Common
                 case TestType.SearchPTV1:
                     return "Search_PTV1";
                 case TestType.SearchPTV2:
-                    return "SearchPTV2";
+                    return "Search_PTV2";
                 case TestType.SearchST:
                     return "SearchST";
                 case TestType.ConstructPTV1CSC:
@@ -143,13 +147,13 @@ namespace Speciale.Common
         
         public static int SearchTest(string S_file, TestType type, int S_length)
         {
-            var patternLengths = new List<int>() { 50, 100, 200, 400, 1000, 2000 };
+            var patternLengths = new List<int>() {5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000};
 
-            int reps = 500;
+            int reps = 2500;
             EnsureFolderStructure();
 
-            File.AppendAllText("results\\" + searchTimeOutputFile + "_" + TestTypeToString(type), "Filename: " + (S_file) + "\n");
-            File.AppendAllText("results\\" + searchTimeOutputFile + "_" + TestTypeToString(type), "S length: " + (S_length) + "\n");
+            File.AppendAllText("results_search\\" + searchTimeOutputFile + "_" + TestTypeToString(type), "Filename: " + (S_file) + "\n");
+            File.AppendAllText("results_search\\" + searchTimeOutputFile + "_" + TestTypeToString(type), "S length: " + (S_length) + "\n");
 
 
             WriteTempFile(S_file, S_length);
@@ -176,36 +180,21 @@ namespace Speciale.Common
             string S = File.ReadAllText(S_file);
             foreach (var p_length in patternLengths)
             {
-                File.AppendAllText("results\\" + searchTimeOutputFile + "_" + TestTypeToString(type), "pattern length: " + (p_length) + "\n");
+                File.AppendAllText("results_search\\" + searchTimeOutputFile + "_" + TestTypeToString(type), "pattern length: " + (p_length) + "\n");
 
                 double timeTakenTotalSeconds = 0;
 
                 for (int i = 0; i < reps; i++)
                 {
+                    //if (i % 2 == 0)
                     string pattern = S.Substring(i, p_length);
+                    //else
+                    // string pattern = String.Join("", S.Substring(i, p_length), "X");
 
                     tester.UpdateP(pattern, false);
 
 
                     double curTime;
-                    while (first)
-                    {
-                        switch (type)
-                        {
-                            case TestType.SearchST:
-                                tester.SearchST((SuffixTree.SuffixTree)trie, out curTime);
-                                break;
-                            case TestType.SearchPTV1:
-                                tester.SearchPTV1((PhraseTrieV1)trie, out curTime);
-                                break;
-                            case TestType.SearchPTV2:
-                                tester.SearchPTV2((PhraseTrieV2)trie, out curTime);
-                                break;
-                            default:
-                                throw new Exception("Bad type");
-                        }
-                        first = false;
-                    }
                     switch (type)
                     {
                         case TestType.SearchST:
@@ -220,12 +209,19 @@ namespace Speciale.Common
                         default:
                             throw new Exception("Bad type");
                     }
-
-                    timeTakenTotalSeconds += curTime;
+                    if (first)
+                    {
+                        first = false;
+                        i--;
+                    }
+                    else
+                        timeTakenTotalSeconds += curTime;
 
 
                 }
-                File.AppendAllText("results\\" + searchTimeOutputFile + "_" + TestTypeToString(type), "time: " + (timeTakenTotalSeconds) + "\n");
+                Console.Out.WriteLine("Search: ST [" + TestTypeToString(type) + "]. Time taken: " + timeTakenTotalSeconds);
+
+                File.AppendAllText("results_search\\" + searchTimeOutputFile + "_" + TestTypeToString(type), "time: " + (timeTakenTotalSeconds) + "\n");
 
             }
 
@@ -457,7 +453,7 @@ namespace Speciale.Common
             var res = PTV1naive.Search(LZ_P);
             timetaken = (DateTime.Now - t1).TotalSeconds;
 
-            Console.Out.WriteLine("Search: PT_V1. Time taken: " + timetaken);
+            // Console.Out.WriteLine("Search: PT_V1. Time taken: " + timetaken);
 
             return res;
         }
@@ -473,7 +469,7 @@ namespace Speciale.Common
             var res = PTV2.Search(LZ_P);
             timetaken = (DateTime.Now - t1).TotalSeconds;
 
-            Console.Out.WriteLine("Search: PT_V2. Time taken: " + timetaken);
+            //Console.Out.WriteLine("Search: PT_V2. Time taken: " + timetaken);
 
             return res;
         }
@@ -490,7 +486,7 @@ namespace Speciale.Common
             var pattern = Phrase.DecompressLZ77Phrases(LZ_P);
             var res = ST.Search(pattern);
             timetaken = (DateTime.Now - t1).TotalSeconds;
-            Console.Out.WriteLine("Search: ST [Naive]. Time taken: " + timetaken);
+            // Console.Out.WriteLine("Search: ST [Naive]. Time taken: " + timetaken);
             return res;
         }
 

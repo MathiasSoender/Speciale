@@ -83,7 +83,7 @@ namespace Speciale.V2
                         }
                         else
                         {
-                            if (p_k + lcpDS.GetPrefixLength(i + p_k - r_k, i + p_k) >= patternLength)
+                            if (p_k + Math.Min(lcpDS.GetPrefixLength(i + p_k - r_k, i + p_k), l_k) >= patternLength)
                             {
                                 return GenerateOutputOfSearch(child);
                             }
@@ -100,7 +100,6 @@ namespace Speciale.V2
                 // Completely matched the edge
                 curNode = child;
                 curPhraseIndex += matched;
-
             }
 
             // Matched everything
